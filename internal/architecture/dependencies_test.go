@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestPhaseOneDependencyDirection(t *testing.T) {
+func TestImplementedDependencyDirection(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot locate architecture test")
@@ -39,6 +39,21 @@ func TestPhaseOneDependencyDirection(t *testing.T) {
 		"internal/platform/config":     {},
 		"internal/platform/httpserver": {},
 		"internal/architecture":        {},
+		"internal/runtime":             {},
+		"internal/workflow":            {},
+		"internal/tool":                {},
+		"internal/execution":           {},
+		"internal/approval":            {},
+	}
+	contracts := map[string]bool{
+		"internal/runtime": true, "internal/workflow": true, "internal/tool": true,
+		"internal/execution": true, "internal/approval": true,
+	}
+	// Contract packages need only local validation/codecs, not HTTP, process,
+	// persistence or provider mechanisms, even when available in the standard library.
+	contractStandard := map[string]bool{
+		"encoding/hex": true, "encoding/json": true, "errors": true,
+		"strings": true, "testing": true,
 	}
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -70,6 +85,9 @@ func TestPhaseOneDependencyDirection(t *testing.T) {
 			}
 			if !standard[name] && !imports[name] {
 				t.Errorf("%s: forbidden dependency %s", relative, name)
+			}
+			if contracts[owner] && !contractStandard[name] {
+				t.Errorf("%s: identity contract depends on an unauthorized mechanism %s", relative, name)
 			}
 		}
 		return nil
