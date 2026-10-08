@@ -11,7 +11,7 @@ func TestUnsetRunAndInvalidMetadata(t *testing.T) {
 		func(r Run) (Run, error) { return r.Wait(WaitForApproval) },
 		func(r Run) (Run, error) { return r.Finish(Failed) },
 		func(r Run) (Run, error) { return r.RequestStop(StopUserCancellation) },
-		func(r Run) (Run, error) { return r.RecordEffectKnowledge(EffectUnknown) }} {
+		func(r Run) (Run, error) { return r.WithEffectKnowledgeProjection(EffectUnknown) }} {
 		result, err := op(unset)
 		if !errors.Is(err, ErrInvalidRun) || result != unset {
 			t.Fatal("unset Run admitted a transition")
@@ -41,7 +41,7 @@ func TestUnsetRunAndInvalidMetadata(t *testing.T) {
 			t.Fatal("unknown outcome accepted")
 		}
 		knowledge := EffectKnowledge(n)
-		result, err = r.RecordEffectKnowledge(knowledge)
+		result, err = r.WithEffectKnowledgeProjection(knowledge)
 		if n >= 1 && n <= 5 {
 			if err != nil || knowledge.String() == "Invalid" {
 				t.Fatal("valid effect knowledge rejected")
@@ -101,7 +101,7 @@ func FuzzRunLifecycle(f *testing.F) {
 			case 5:
 				r, err = r.RequestStop(StopCause(value))
 			case 6:
-				r, err = r.RecordEffectKnowledge(EffectKnowledge(value))
+				r, err = r.WithEffectKnowledgeProjection(EffectKnowledge(value))
 			}
 			if err != nil && r != before {
 				t.Fatal("rejected operation changed Run")

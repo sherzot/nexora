@@ -62,7 +62,9 @@ func (o Outcome) String() string {
 }
 
 // EffectKnowledge is a caller-supplied Runtime projection, never authoritative
-// Tool/Execution evidence. No ordering, safe-retry or exactly-once claim follows.
+// Tool/Execution evidence, operation results or authorization. Confirmed labels
+// describe the report, not independently verified provenance or receipt custody.
+// No ordering, safe-retry or exactly-once claim follows.
 type EffectKnowledge uint8
 
 const (
@@ -93,7 +95,9 @@ const (
 	StopWorkflowCancellation
 	StopDeadlineExpiration
 	StopPolicyRevocation
-	StopWorkerShutdownOrLoss
+	// StopWorkerShutdown is deliberately initiated shutdown intent, not observed
+	// unexpected worker loss. Loss observation/recovery is deferred to its owner.
+	StopWorkerShutdown
 	StopProviderCancellation
 	StopToolOrProcessCancellation
 )
@@ -105,5 +109,5 @@ func (c StopCause) String() string {
 	if !c.valid() {
 		return "Invalid"
 	}
-	return [...]string{"", "UserCancellation", "WorkflowCancellation", "DeadlineExpiration", "PolicyRevocation", "WorkerShutdownOrLoss", "ProviderCancellation", "ToolOrProcessCancellation"}[c]
+	return [...]string{"", "UserCancellation", "WorkflowCancellation", "DeadlineExpiration", "PolicyRevocation", "WorkerShutdown", "ProviderCancellation", "ToolOrProcessCancellation"}[c]
 }

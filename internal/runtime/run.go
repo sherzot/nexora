@@ -102,7 +102,10 @@ func (r Run) Finish(outcome Outcome) (Run, error) {
 	return r, nil
 }
 
-// RequestStop blocks future advancement, retaining the first cause. It neither
+// RequestStop records explicitly initiated stop intent, retaining the first cause.
+// Observed unexpected worker loss alone is not a request; its observation and
+// recovery belong to future authoritative coordination. No cause authenticates
+// a requester. This method blocks future advancement. It neither
 // changes state/outcome/effects nor verifies external termination. Evidence can
 // still be recorded and Finish must be explicit. Repeated requests are errors.
 func (r Run) RequestStop(cause StopCause) (Run, error) {
@@ -119,11 +122,13 @@ func (r Run) RequestStop(cause StopCause) (Run, error) {
 	return r, nil
 }
 
-// RecordEffectKnowledge copies an interpretation supplied by the relevant
-// owner. It does not verify evidence, aggregate multiple operations or infer
-// non-performance. No monotonic ordering is imposed. Terminal values stay
-// frozen; later reconciliation/corrections need separate linked owner evidence.
-func (r Run) RecordEffectKnowledge(knowledge EffectKnowledge) (Run, error) {
+// WithEffectKnowledgeProjection copies a caller-reported Runtime interpretation.
+// Even a Confirmed category does not verify provenance or receipt custody. This
+// is not authorization, a Tool result, an Execution Job result or authoritative
+// external-effect truth. ConfirmedNotPerformed does not establish safe retry.
+// It does not aggregate operations or impose evidence ordering. Finished freezes
+// the projection; later authoritative reconciliation belongs to operation owners.
+func (r Run) WithEffectKnowledgeProjection(knowledge EffectKnowledge) (Run, error) {
 	if err := r.canChange(); err != nil {
 		return r, err
 	}

@@ -215,7 +215,7 @@ func TestWaitResumeAndStop(t *testing.T) {
 			if !errors.Is(err, ErrStopRequested) || next != stopped {
 				t.Fatal("repeated stop replaced earlier provenance")
 			}
-			known, err := stopped.RecordEffectKnowledge(EffectConfirmedPerformed)
+			known, err := stopped.WithEffectKnowledgeProjection(EffectConfirmedPerformed)
 			known = must(t, known, err)
 			terminal, err := known.Finish(Cancelled)
 			terminal = must(t, terminal, err)
@@ -237,7 +237,7 @@ func TestEffectOutcomeOrthogonalityAndTerminalFreeze(t *testing.T) {
 	running := states(t)[2]
 	for effect := EffectNotDispatched; effect <= EffectUnknown; effect++ {
 		for outcome := Succeeded; outcome <= Indeterminate; outcome++ {
-			r, err := running.RecordEffectKnowledge(effect)
+			r, err := running.WithEffectKnowledgeProjection(effect)
 			r = must(t, r, err)
 			finished, err := r.Finish(outcome)
 			finished = must(t, finished, err)
@@ -248,7 +248,7 @@ func TestEffectOutcomeOrthogonalityAndTerminalFreeze(t *testing.T) {
 				func(r Run) (Run, error) { return r.Wait(WaitForTool) },
 				func(r Run) (Run, error) { return r.Finish(Failed) },
 				func(r Run) (Run, error) { return r.RequestStop(StopUserCancellation) },
-				func(r Run) (Run, error) { return r.RecordEffectKnowledge(EffectUnknown) }} {
+				func(r Run) (Run, error) { return r.WithEffectKnowledgeProjection(EffectUnknown) }} {
 				result, err := op(finished)
 				if !errors.Is(err, ErrIllegalTransition) || result != finished {
 					t.Fatal("Finished value mutated")
@@ -257,11 +257,62 @@ func TestEffectOutcomeOrthogonalityAndTerminalFreeze(t *testing.T) {
 		}
 	}
 	// No unsupported evidence ordering: an owner may report uncertainty again.
-	r, err := running.RecordEffectKnowledge(EffectConfirmedPerformed)
+	r, err := running.WithEffectKnowledgeProjection(EffectConfirmedPerformed)
 	r = must(t, r, err)
-	r, err = r.RecordEffectKnowledge(EffectUnknown)
+	r, err = r.WithEffectKnowledgeProjection(EffectUnknown)
 	r = must(t, r, err)
 	if r.EffectKnowledge() != EffectUnknown {
 		t.Fatal("owner uncertainty suppressed")
+	}
+}
+
+// Projection admission validates only the category, not evidence custody.
+func TestReportedProjectionNeedsNoEvidence(t *testing.T) {
+	for _, original := range states(t)[:4] {
+		for effect := EffectNotDispatched; effect <= EffectUnknown; effect++ {
+			reported, err := original.WithEffectKnowledgeProjection(effect)
+			reported = must(t, reported, err)
+			if reported.State() != original.State() || reported.EffectKnowledge() != effect {
+				t.Fatal("reported projection changed lifecycle or lost category")
+			}
+			if _, requested := reported.StopRequest(); requested {
+				t.Fatal("report fabricated stop intent")
+			}
+			checkRun(t, reported, original)
+		}
+	}
+}
+
+func TestWorkerShutdownIntentIsExplicit(t *testing.T) {
+	// Unexpected loss has no observation operation in this local model. Merely
+	// holding an incomplete Run cannot synthesize stop intent or any outcome;
+	// authoritative coordination must establish what happened separately.
+	running := states(t)[2]
+	if _, requested := running.StopRequest(); requested {
+		t.Fatal("incomplete Run synthesized a cancellation request")
+	}
+	if _, settled := running.FinalOutcome(); settled || running.State() != Running || running.EffectKnowledge() != EffectUnknown {
+		t.Fatal("incomplete Run inferred termination or effects")
+	}
+	shutdown, err := running.RequestStop(StopWorkerShutdown)
+	shutdown = must(t, shutdown, err)
+	if cause, requested := shutdown.StopRequest(); !requested || cause != StopWorkerShutdown {
+		t.Fatal("deliberate shutdown intent lost")
+	}
+	if _, settled := shutdown.FinalOutcome(); settled || shutdown.State() != Running || shutdown.EffectKnowledge() != EffectUnknown {
+		t.Fatal("shutdown intent inferred termination, rollback or safe retry")
+	}
+	// Neither loss nor stop intent selects an outcome. Finish is explicit and
+	// accepts each caller-established Running outcome under the existing rules.
+	for _, r := range []Run{running, shutdown} {
+		for outcome := Succeeded; outcome <= Indeterminate; outcome++ {
+			finished, err := r.Finish(outcome)
+			finished = must(t, finished, err)
+			actual, settled := finished.FinalOutcome()
+			if !settled || actual != outcome || finished.EffectKnowledge() != EffectUnknown {
+				t.Fatal("explicit Finish changed independently unknown effects")
+			}
+			checkRun(t, finished, running)
+		}
 	}
 }
