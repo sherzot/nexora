@@ -36,6 +36,9 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			module + "internal/platform/config":     true,
 			module + "internal/platform/httpserver": true,
 		},
+		"cmd/runtime-demo": {
+			module + "internal/runtime": true,
+		},
 		"internal/platform/config":     {},
 		"internal/platform/httpserver": {},
 		"internal/architecture":        {},
@@ -54,6 +57,14 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	contractStandard := map[string]bool{
 		"encoding/hex": true, "encoding/json": true, "errors": true,
 		"strings": true, "testing": true,
+	}
+	// The isolated demo may present local values, but has no network, process,
+	// persistence or provider dependency. Existing package restrictions stay intact.
+	demoStandard := map[string]bool{
+		"errors": true, "fmt": true, "io": true, "os": true,
+	}
+	demoTestStandard := map[string]bool{
+		"bytes": true, "io": true, "strings": true, "testing": true,
 	}
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -88,6 +99,15 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			}
 			if contracts[owner] && !contractStandard[name] {
 				t.Errorf("%s: identity contract depends on an unauthorized mechanism %s", relative, name)
+			}
+			if owner == "cmd/runtime-demo" && standard[name] {
+				permitted := demoStandard
+				if strings.HasSuffix(path, "_test.go") {
+					permitted = demoTestStandard
+				}
+				if !permitted[name] {
+					t.Errorf("%s: demo depends on an unauthorized mechanism %s", relative, name)
+				}
 			}
 		}
 		return nil
