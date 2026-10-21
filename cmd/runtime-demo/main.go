@@ -15,11 +15,23 @@ func main() {
 }
 
 func execute(args []string, out, diagnostic io.Writer) int {
+	run := demonstrate
 	if len(args) != 0 {
-		fmt.Fprintln(diagnostic, "usage: runtime-demo (no arguments)")
-		return 2
+		if len(args) != 1 {
+			return usage(diagnostic)
+		}
+		switch args[0] {
+		case "--scenario=wait-resume":
+			run = demonstrateWaitResume
+		case "--scenario=stop":
+			run = demonstrateStop
+		case "--scenario=revision-guards":
+			run = demonstrateRevisionGuards
+		default:
+			return usage(diagnostic)
+		}
 	}
-	if err := demonstrate(out); err != nil {
+	if err := run(out); err != nil {
 		fmt.Fprintln(diagnostic, "runtime-demo:", err)
 		return 1
 	}
@@ -151,4 +163,199 @@ func checkCandidate(predecessor runtime.RunSnapshot, prepared runtime.PreparedRu
 		return errors.New("unexpected local prepared candidate")
 	}
 	return nil
+}
+
+func usage(out io.Writer) int {
+	fmt.Fprintln(out, "usage: runtime-demo (no arguments) | --scenario=wait-resume | --scenario=stop | --scenario=revision-guards")
+	return 2
+}
+
+// Synthetic snapshots only: constructing or selecting copies grants no authority.
+func runningFixture() (runtime.RunSnapshot, error) {
+	id, err := runtime.ParseRunID("run_0123456789abcdef0123456789abcdef")
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	configuration, err := runtime.ParseConfigurationRevisionRef("demo:configuration-1")
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	assignment, err := runtime.ParseAssignmentRevisionRef("demo:assignment-1")
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	attribution, err := runtime.NewRunConfigurationAttribution(id, configuration, assignment)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	run, err := runtime.NewRun(id, attribution)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	revision, err := runtime.NewRunRevision(1)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	created, err := runtime.NewRunSnapshot(run, revision)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	enqueue, err := created.PrepareEnqueue(id, revision)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	queued, err := selectCandidate(created, enqueue, runtime.OperationEnqueue, runtime.Queued)
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	start, err := queued.PrepareStart(id, queued.Revision())
+	if err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	return selectCandidate(queued, start, runtime.OperationStart, runtime.Running)
+}
+
+func selectCandidate(before runtime.RunSnapshot, candidate runtime.PreparedRunTransition, operation runtime.RunOperation, state runtime.LifecycleState) (runtime.RunSnapshot, error) {
+	if err := checkCandidate(before, candidate, operation, state); err != nil {
+		return runtime.RunSnapshot{}, err
+	}
+	return runtime.NewRunSnapshot(candidate.Candidate(), candidate.ProposedRevision())
+}
+
+const scenarioBoundary = "Synthetic local values only; no operational acceptance, queue admission, execution or authoritative commit.\n"
+
+func demonstrateWaitResume(out io.Writer) error {
+	running, err := runningFixture()
+	if err != nil {
+		return err
+	}
+	beforeRunning := running
+	wait, err := running.PrepareWait(running.Run().ID(), running.Revision(), runtime.WaitForExternalInput)
+	if err != nil {
+		return err
+	}
+	waiting, err := selectCandidate(running, wait, runtime.OperationWait, runtime.Waiting)
+	if err != nil {
+		return err
+	}
+	beforeWaiting := waiting
+	reason, present := waiting.Run().WaitingReason()
+	if !present || reason != runtime.WaitForExternalInput {
+		return errors.New("unexpected local waiting reason")
+	}
+	requeue, err := waiting.PrepareRequeue(waiting.Run().ID(), waiting.Revision())
+	if err != nil {
+		return err
+	}
+	queued, err := selectCandidate(waiting, requeue, runtime.OperationRequeue, runtime.Queued)
+	if err != nil {
+		return err
+	}
+	beforeQueued := queued
+	if reason, present := queued.Run().WaitingReason(); present || reason != 0 {
+		return errors.New("requeue retained categorical waiting information")
+	}
+	start, err := queued.PrepareStart(queued.Run().ID(), queued.Revision())
+	if err != nil {
+		return err
+	}
+	resumed, err := selectCandidate(queued, start, runtime.OperationStart, runtime.Running)
+	if err != nil {
+		return err
+	}
+	if reason, present := resumed.Run().WaitingReason(); present || reason != 0 {
+		return errors.New("resumed value retained waiting information")
+	}
+	if running != beforeRunning || waiting != beforeWaiting || queued != beforeQueued {
+		return errors.New("local wait/resume predecessor changed")
+	}
+	_, err = fmt.Fprintf(out, scenarioBoundary+"wait-resume: %s/%d -> %s/%d reason=%s -> %s/%d -> %s/%d\nCategorical wait cleared by requeue; predecessors unchanged; no actual dependency resolution.\n", running.Run().State(), running.Revision().Value(), waiting.Run().State(), waiting.Revision().Value(), reason, queued.Run().State(), queued.Revision().Value(), resumed.Run().State(), resumed.Revision().Value())
+	return err
+}
+
+func demonstrateStop(out io.Writer) error {
+	running, err := runningFixture()
+	if err != nil {
+		return err
+	}
+	beforeRunning := running
+	stop, err := running.PrepareRequestStop(running.Run().ID(), running.Revision(), runtime.StopUserCancellation)
+	if err != nil {
+		return err
+	}
+	stopped, err := selectCandidate(running, stop, runtime.OperationRequestStop, runtime.Running)
+	if err != nil {
+		return err
+	}
+	beforeStopped := stopped
+	cause, requested := stopped.Run().StopRequest()
+	outcome, settled := stopped.Run().FinalOutcome()
+	originalOutcome, originalSettled := running.Run().FinalOutcome()
+	if !requested || cause != runtime.StopUserCancellation || outcome != originalOutcome || settled != originalSettled || stopped.Run().EffectKnowledge() != running.Run().EffectKnowledge() {
+		return errors.New("stop changed outcome or effects")
+	}
+	rejected, err := stopped.PrepareWait(stopped.Run().ID(), stopped.Revision(), runtime.WaitForExternalInput)
+	if !errors.Is(err, runtime.ErrStopRequested) || !rejected.IsZero() {
+		return errors.New("stop did not reject advancement")
+	}
+	finish, err := stopped.PrepareFinish(stopped.Run().ID(), stopped.Revision(), runtime.Cancelled)
+	if err != nil {
+		return err
+	}
+	finished, err := selectCandidate(stopped, finish, runtime.OperationFinish, runtime.Finished)
+	if err != nil {
+		return err
+	}
+	final, settled := finished.Run().FinalOutcome()
+	finalCause, finalRequested := finished.Run().StopRequest()
+	if !settled || final != runtime.Cancelled || !finalRequested || finalCause != cause || finished.Run().EffectKnowledge() != runtime.EffectUnknown {
+		return errors.New("unexpected separate terminal candidate")
+	}
+	if running != beforeRunning || stopped != beforeStopped {
+		return errors.New("local stop predecessor changed")
+	}
+	_, err = fmt.Fprintf(out, scenarioBoundary+"stop: %s/%d -> %s/%d stop-intent=%s; outcome unset; effects=%s\nAdvancement rejected: ErrStopRequested; zero candidate; predecessors unchanged.\nSeparate finish: %s/%d outcome=%s effects=%s; no termination, rollback or external-effect evidence.\n", running.Run().State(), running.Revision().Value(), stopped.Run().State(), stopped.Revision().Value(), cause, stopped.Run().EffectKnowledge(), finished.Run().State(), finished.Revision().Value(), final, finished.Run().EffectKnowledge())
+	return err
+}
+
+func demonstrateRevisionGuards(out io.Writer) error {
+	running, err := runningFixture()
+	if err != nil {
+		return err
+	}
+	beforeRunning := running
+	otherID, err := runtime.ParseRunID("run_1123456789abcdef0123456789abcdef")
+	if err != nil {
+		return err
+	}
+	rejected, err := running.PrepareWait(otherID, running.Revision(), runtime.WaitForExternalInput)
+	if !errors.Is(err, runtime.ErrRunIdentityMismatch) || !rejected.IsZero() {
+		return errors.New("expected snapshot identity mismatch")
+	}
+	wrongRevision, err := runtime.NewRunRevision(2)
+	if err != nil {
+		return err
+	}
+	rejected, err = running.PrepareWait(running.Run().ID(), wrongRevision, runtime.WaitForExternalInput)
+	if !errors.Is(err, runtime.ErrExpectedRevisionMismatch) || !rejected.IsZero() {
+		return errors.New("expected revision mismatch")
+	}
+	maximum, err := runtime.NewRunRevision(^uint64(0))
+	if err != nil {
+		return err
+	}
+	exhausted, err := runtime.NewRunSnapshot(running.Run(), maximum)
+	if err != nil {
+		return err
+	}
+	beforeExhausted := exhausted
+	rejected, err = exhausted.PrepareWait(exhausted.Run().ID(), exhausted.Revision(), runtime.WaitForExternalInput)
+	if !errors.Is(err, runtime.ErrRevisionOverflow) || !rejected.IsZero() {
+		return errors.New("expected revision overflow rejection")
+	}
+	if running != beforeRunning || exhausted != beforeExhausted {
+		return errors.New("revision guard predecessor changed")
+	}
+	_, err = fmt.Fprint(out, scenarioBoundary+"revision-guards: identity mismatch rejected ErrRunIdentityMismatch; zero candidate.\nExpected revision mismatch rejected ErrExpectedRevisionMismatch; zero candidate.\nRevision overflow rejected ErrRevisionOverflow; zero candidate; no wrapping.\nAll predecessors unchanged; checks concern supplied snapshots only.\n")
+	return err
 }
