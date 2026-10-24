@@ -37,7 +37,8 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			module + "internal/platform/httpserver": true,
 		},
 		"cmd/runtime-demo": {
-			module + "internal/runtime": true,
+			module + "internal/runtime":  true,
+			module + "internal/workflow": true,
 		},
 		"internal/platform/postgrescheck": {
 			"github.com/jackc/pgx/v5/pgconn":   true,
@@ -65,10 +66,12 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	// The isolated demo may present local values, but has no network, process,
 	// persistence or provider dependency. Existing package restrictions stay intact.
 	demoStandard := map[string]bool{
-		"errors": true, "fmt": true, "io": true, "os": true,
+		"context": true,
+		"errors":  true, "fmt": true, "io": true, "os": true,
 	}
 	demoTestStandard := map[string]bool{
-		"bytes": true, "io": true, "strings": true, "testing": true,
+		"context": true,
+		"bytes":   true, "io": true, "strings": true, "testing": true,
 	}
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {

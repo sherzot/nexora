@@ -21,6 +21,8 @@ func execute(args []string, out, diagnostic io.Writer) int {
 			return usage(diagnostic)
 		}
 		switch args[0] {
+		case "--scenario=coordinate":
+			run = demonstrateCoordination
 		case "--scenario=all":
 			run = demonstrateAll
 		case "--scenario=wait-resume":
@@ -168,7 +170,7 @@ func checkCandidate(predecessor runtime.RunSnapshot, prepared runtime.PreparedRu
 }
 
 func usage(out io.Writer) int {
-	fmt.Fprintln(out, "usage: runtime-demo (no arguments) | --scenario=wait-resume | --scenario=stop | --scenario=revision-guards | --scenario=all")
+	fmt.Fprintln(out, "usage: runtime-demo (no arguments) | --scenario=wait-resume | --scenario=stop | --scenario=revision-guards | --scenario=all | --scenario=coordinate")
 	return 2
 }
 

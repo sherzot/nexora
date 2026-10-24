@@ -47,3 +47,23 @@ authorization, persistence, admission, dispatch, Temporal execution, durable
 outcome evidence or recovery. The governed first creation use case still ends at
 Created; the transitions here are local value demonstrations only. D02 remains
 NOT ACCEPTED, normative obligations REVIEW ONLY, O1–O5 and GO-2026-5932 OPEN.
+
+## C6 in-memory fixture coordination
+
+```sh
+go run ./cmd/runtime-demo --scenario=coordinate
+```
+
+The private development coordinator accepts an explicit context, a preconstructed
+WorkflowID used only for correlation, and an ordered slice of preconstructed Run
+snapshots with expected identity/revision and synthetic finish outcomes. It calls
+PrepareFinish once per item. It neither constructs Runs nor selects candidates as
+committed state. Per-item rejection results remain in input order; cancellation
+stops before the next item and returns the already-produced results, without
+retry or recovery. No goroutines, scheduler, service or external calls are added.
+
+The fixed CLI example shows a valid finish candidate, a stale-revision rejection,
+and a terminal mutation rejection. Tests additionally cover illegal transitions,
+identity mismatch, invalid snapshots, repeated deterministic calls, unchanged
+inputs and cancellation between items. Workflow identity grants no authority or
+execution behavior. C5's --scenario=all and all earlier transcripts are unchanged.
