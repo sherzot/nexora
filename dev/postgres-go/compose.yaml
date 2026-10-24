@@ -1,0 +1,58 @@
+name: nexora-c4-postgres
+services:
+  postgres:
+    image: docker.io/library/postgres:17.11-bookworm@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+    pull_policy: never
+    restart: "no"
+    environment:
+      POSTGRES_USER: nexora_c4
+      POSTGRES_DB: nexora_c4
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets:
+      - postgres_password
+    tmpfs:
+      - /var/lib/postgresql/data:rw,nosuid,noexec,size=268435456
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+    networks:
+      - isolated
+    stop_grace_period: 10s
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "nexora_c4", "-d", "nexora_c4", "-t", "3"]
+      interval: 2s
+      timeout: 4s
+      retries: 25
+  runner:
+    profiles: ["integration"]
+    image: docker.io/library/postgres:17.11-bookworm@sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+    pull_policy: never
+    network_mode: "service:postgres"
+    user: "${NEXORA_C4_UID:?Set the non-root credential owner UID}:${NEXORA_C4_GID:?Set its GID}"
+    entrypoint: ["/c4/postgrescheck.test"]
+    command: ["-test.v", "-test.run=^TestIntegration$", "-test.timeout=45s"]
+    environment:
+      NEXORA_C4_RUNNER: "1"
+      NEXORA_C4_PASSWORD_FILE: /run/secrets/postgres_password
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+    secrets:
+      - postgres_password
+    volumes:
+      - type: bind
+        source: ${NEXORA_C4_TEST_BINARY:?Set the external Linux ARM64 test binary path}
+        target: /c4/postgrescheck.test
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=67108864
+      # Override the image's inherited VOLUME; this is not PostgreSQL data evidence.
+      - /var/lib/postgresql/data:rw,nosuid,noexec,size=16777216
+networks:
+  isolated:
+    internal: true
+secrets:
+  postgres_password:
+    file: ${NEXORA_C4_PASSWORD_FILE:?Set an external private password file}

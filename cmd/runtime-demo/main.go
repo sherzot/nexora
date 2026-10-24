@@ -21,6 +21,10 @@ func execute(args []string, out, diagnostic io.Writer) int {
 			return usage(diagnostic)
 		}
 		switch args[0] {
+		case "--scenario=coordinate":
+			run = demonstrateCoordination
+		case "--scenario=all":
+			run = demonstrateAll
 		case "--scenario=wait-resume":
 			run = demonstrateWaitResume
 		case "--scenario=stop":
@@ -166,7 +170,7 @@ func checkCandidate(predecessor runtime.RunSnapshot, prepared runtime.PreparedRu
 }
 
 func usage(out io.Writer) int {
-	fmt.Fprintln(out, "usage: runtime-demo (no arguments) | --scenario=wait-resume | --scenario=stop | --scenario=revision-guards")
+	fmt.Fprintln(out, "usage: runtime-demo (no arguments) | --scenario=wait-resume | --scenario=stop | --scenario=revision-guards | --scenario=all | --scenario=coordinate")
 	return 2
 }
 
@@ -358,4 +362,17 @@ func demonstrateRevisionGuards(out io.Writer) error {
 	}
 	_, err = fmt.Fprint(out, scenarioBoundary+"revision-guards: identity mismatch rejected ErrRunIdentityMismatch; zero candidate.\nExpected revision mismatch rejected ErrExpectedRevisionMismatch; zero candidate.\nRevision overflow rejected ErrRevisionOverflow; zero candidate; no wrapping.\nAll predecessors unchanged; checks concern supplied snapshots only.\n")
 	return err
+}
+
+// demonstrateAll composes existing fixed-fixture scenarios, not a production
+// creation/admission flow. Each scenario constructs independent local values.
+func demonstrateAll(out io.Writer) error {
+	for _, scenario := range []func(io.Writer) error{
+		demonstrate, demonstrateWaitResume, demonstrateStop, demonstrateRevisionGuards,
+	} {
+		if err := scenario(out); err != nil {
+			return err
+		}
+	}
+	return nil
 }
