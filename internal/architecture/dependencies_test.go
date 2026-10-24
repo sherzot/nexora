@@ -39,6 +39,10 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		"cmd/runtime-demo": {
 			module + "internal/runtime": true,
 		},
+		"internal/platform/postgrescheck": {
+			"github.com/jackc/pgx/v5/pgconn":   true,
+			"github.com/jackc/pgx/v5/pgproto3": true,
+		},
 		"internal/platform/config":     {},
 		"internal/platform/httpserver": {},
 		"internal/architecture":        {},
@@ -96,6 +100,9 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			}
 			if !standard[name] && !imports[name] {
 				t.Errorf("%s: forbidden dependency %s", relative, name)
+			}
+			if owner == "internal/platform/postgrescheck" && name == "github.com/jackc/pgx/v5/pgproto3" && !strings.HasSuffix(path, "_test.go") {
+				t.Errorf("%s: protocol fixture dependency is test-only", relative)
 			}
 			if contracts[owner] && !contractStandard[name] {
 				t.Errorf("%s: identity contract depends on an unauthorized mechanism %s", relative, name)
