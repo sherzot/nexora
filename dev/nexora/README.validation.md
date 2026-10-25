@@ -59,3 +59,29 @@ neither egress isolation nor application authorization.
 Health endpoints describe only the development HTTP skeleton. D02 remains NOT
 ACCEPTED; normative obligations REVIEW ONLY; O1–O5 and GO-2026-5932 OPEN.
 Operational Run creation, admission, dispatch and persistence remain BLOCKED.
+
+## C8 offline boundary regression tests
+
+From the repository root, using Python 3.9 or newer:
+
+```sh
+python3 -B -m unittest discover -s dev/nexora -p test_validate.py -v
+```
+
+The standard-library suite loads the unchanged validator through importlib.
+Independent deterministic fixtures cover both modes, accepted Compose
+normalization, security restrictions and image identity/platform/reference.
+Negative cases reject configuration drift, extra fields, mounts, dependencies,
+secrets, privilege changes, incorrect publication and missing required controls.
+Mocked failures cover command errors, malformed JSON, missing images, timeout,
+Git revision failure and unavailable optional Go version evidence. Reports must
+be ordered and byte-identical for identical inputs; mandatory failures exit 1,
+optional UNKNOWN evidence permits exit 0, and invalid arguments exit 2.
+
+Every test installs a subprocess.run mock that rejects unexpected commands.
+No real Docker, Git, Go, database client or network request is executed by the
+suite. These unit tests prove behavior against controlled inputs, not live
+Docker configuration, runtime isolation, HTTP readiness or integration.
+The separate runtime authorization requirements above remain in force.
+Operational integration remains BLOCKED; no architecture or governance status
+is changed by this test suite.
