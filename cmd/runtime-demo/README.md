@@ -67,3 +67,31 @@ and a terminal mutation rejection. Tests additionally cover illegal transitions,
 identity mismatch, invalid snapshots, repeated deterministic calls, unchanged
 inputs and cancellation between items. Workflow identity grants no authority or
 execution behavior. C5's --scenario=all and all earlier transcripts are unchanged.
+
+## C9 semantic contract regression
+
+The in-memory contract tests exercise an ordered mixed batch of successful and
+rejected finish preparations. They check correlation, Run identity, attribution,
+predecessor/proposed revisions, operation metadata, zero rejected candidates and
+unchanged caller fixtures. Existing rejection classes are checked with errors.Is.
+Two valid preparations from one predecessor remain competing local candidates;
+neither acquires exclusive ownership or commits state.
+
+Use the existing verified isolated Go 1.27.3 installation, from the repository root:
+
+```sh
+: "${GOROOT:?Set GOROOT to the verified isolated Go 1.27.3 installation}"
+GOTOOLCHAIN=local GOPROXY=off GOFLAGS=-mod=readonly "$GOROOT/bin/go" test -count=1 ./cmd/runtime-demo -run '^TestContract'
+```
+
+Export GOROOT as in the established offline setup. No toolchain or module download
+is permitted. The tests use only supplied in-memory fixtures and existing Runtime
+APIs; no HTTP, database, Docker, subprocess or persistent storage is involved.
+
+Cancellation cases cover before work, between items, and after the final success
+or rejection. They reuse the existing test-only context fixture, which cancels at
+a deterministic Err observation boundary; no sleeps or production test hooks are
+added. Completed results survive cancellation. This checks observation boundaries,
+not interruption inside synchronous PrepareFinish or operational recovery.
+Preparation is not operational dispatch, durable acceptance or commit; Workflow
+correlation is not authority. All existing governance limitations above remain.

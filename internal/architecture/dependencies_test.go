@@ -71,6 +71,7 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	}
 	demoTestStandard := map[string]bool{
 		"context": true,
+		"errors":  true,
 		"bytes":   true, "io": true, "strings": true, "testing": true,
 	}
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
