@@ -1,0 +1,21 @@
+services:
+  app-host:
+    extends:
+      file: compose.yaml
+      service: app
+    profiles: ["host"]
+    network_mode: !reset null
+    environment:
+      NEXORA_LISTEN_ADDRESS: 0.0.0.0:8080
+    ports:
+      - "127.0.0.1::8080"
+    networks:
+      - host_access
+
+networks:
+  host_access:
+    driver: bridge
+    internal: false
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: 127.0.0.1
