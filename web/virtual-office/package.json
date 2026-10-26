@@ -1,0 +1,23 @@
+{
+  "name": "nexora-virtual-office-mock",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Development-only synthetic Virtual Office; no operational integration",
+  "dependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && node scripts/guarded-build.cjs",
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test": "node tests/fixture-integrity.mjs"
+  }
+}
