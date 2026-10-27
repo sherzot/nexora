@@ -177,8 +177,9 @@ test('dependency preflight rejects nonlocal roots, changed lock, manifest drift 
   assert.throws(() => checkDependencies(root, makeIO()), /dependency missing/);
 });
 
-function subprocessFixture() {
+function subprocessFixture(processAPIs = {}) {
   const f = fixture();
+  Object.assign(f.proc, processAPIs);
   let originalSpawns = 0;
   let originalConstructions = 0;
   function ChildProcess() { originalConstructions++; }
@@ -194,7 +195,7 @@ function subprocessFixture() {
     'node:dgram': {}, 'node:dns': {}, 'node:dns/promises': {},
     'node:module': { syncBuiltinESMExports() {} },
   };
-  constrainChild(f.guard, (name) => modules[name], {}, {});
+  constrainChild(f.guard, (name) => modules[name], f.proc, {});
   return { ...f, cp, existing, originalPrototype: ChildProcess.prototype, counts: () => ({ originalSpawns, originalConstructions }) };
 }
 
@@ -243,4 +244,34 @@ test('all seven top-level subprocess methods still audit and latch caught reject
   assert.equal(f.counts().originalSpawns, 0);
   assert.equal(f.events.filter((event) => event.event === 'violation').length, 7);
   f.proc.exitCode = 0; f.guard.finish(); assert.equal(f.proc.exitCode, 1); assert.equal(f.events.at(-1).fatal, true);
+});
+
+test('process.execve is blocked before the original mock runs and records process-replacement', () => {
+  let originalCalls = 0;
+  const f = subprocessFixture({ execve() { originalCalls++; } });
+  const descriptor = Object.getOwnPropertyDescriptor(f.proc, 'execve');
+  assert.equal(descriptor.writable, false);
+  assert.equal(descriptor.configurable, false);
+  assert.throws(() => f.proc.execve('/mock/replacement', ['replacement'], {}), /Build boundary denied: process-replacement/);
+  assert.equal(originalCalls, 0);
+  assert.equal(f.proc.exitCode, 1);
+  const violations = f.events.filter((event) => event.event === 'violation');
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].operation, 'process-replacement');
+  f.guard.finish();
+  assert.equal(f.events.at(-1).event, 'complete');
+  assert.equal(f.events.at(-1).fatal, true);
+});
+
+test('caught process.execve rejection cannot clear fatal completion or pass audit validation', () => {
+  let originalCalls = 0;
+  const f = subprocessFixture({ execve() { originalCalls++; } });
+  try { f.proc.execve('/mock/replacement', [], {}); } catch { /* caller catches denial */ }
+  f.proc.exitCode = 0;
+  f.guard.finish();
+  assert.equal(originalCalls, 0);
+  assert.equal(f.proc.exitCode, 1);
+  assert.equal(f.events.at(-1).fatal, true);
+  assert.ok(f.events.some((event) => event.event === 'violation' && event.operation === 'process-replacement'));
+  assert.throws(() => validateAudit(jsonl(f.events), root), /failure or unknown event/);
 });

@@ -171,14 +171,15 @@ in C10.10E-B without the external declaration-resolution workaround.
 
 ## Remaining clean-checkout limitations
 
-All 29 frontend source/configuration files are currently untracked. A clean
-checkout of current `main` does not contain this frontend. Separately authorized
-Git integration is required before it can be obtained from a checkout.
-The complete repository-local npm build sequence is verified for the tested
-local environment. Fresh-checkout installation and clean-checkout reproducibility
-remain unverified. The local dependency copy and retained temporary npm cache are not
-portable delivery mechanisms. Portable cache provisioning and durable access to
-reviewed provenance/notice evidence remain unresolved documentation inputs.
+The 29 frontend source/configuration files are committed on
+`feat/c10-hybrid-virtual-office`. PR #15 remains Draft and unmerged; current
+`main` does not contain this frontend. Fresh committed-source Git archive
+reproduction passed in C10.12B for macOS ARM64, Node 22.18.0 / npm 11.5.2 and
+the approved offline cache. The complete repository-local npm build sequence
+is verified for that tested environment. Independent Git clone reproduction
+and portable offline-cache provisioning remain unverified. The local dependency
+copy and retained temporary npm cache are not portable delivery mechanisms.
+Durable access to reviewed provenance/notice evidence remains unresolved.
 The ordinary preview script targets root `dist/`, while guarded output is retained
 under `.verification/build-*/dist/`; historical browser checks do not validate a
 new preview invocation.

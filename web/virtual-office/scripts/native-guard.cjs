@@ -107,6 +107,7 @@ function constrainChild(guard, get = require, proc = process, globals = globalTh
     const api = get(name);
     for (const key of Object.keys(api)) if (/^(lookup|resolve|reverse)/.test(key)) deny(api, key, 'network');
   }
+  deny(proc, 'execve', 'process-replacement');
   for (const key of ['getBuiltinModule', 'binding', '_linkedBinding']) deny(proc, key, 'alternate-builtin-access');
   deny(globals, 'fetch', 'network'); deny(globals, 'WebSocket', 'network');
   get('node:module').syncBuiltinESMExports();
