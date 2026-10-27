@@ -2,10 +2,14 @@
 
 ## Status and purpose
 
-OWNER-APPROVED RECONCILIATION — the project owner explicitly authorized the local documentation implementation of this C10 scope record and its narrow AGENTS.md cross-reference in C10.14B2. Repository publication, PR review acceptance, merge and deployment remain separately gated.
+OWNER-APPROVED RECONCILIATION — the project owner explicitly authorized the local documentation implementation of this C10 scope record and its narrow AGENTS.md cross-reference in C10.14B2. Repository publication was separately authorized in C10.14B5;
+PR review acceptance, merge and deployment remain separately gated.
 
-C10.14B3 explicitly authorizes this local implementation and records the
-C10.14B2 approval. This record is not yet committed or merged.
+C10.14B3 authorized local implementation and recorded the C10.14B2 approval.
+C10.14B5 separately authorized publication. This record is committed on
+feat/c10-hybrid-virtual-office in
+922f0551dce4edbf257f265c92a6147be79e68f2 and included in PR #15;
+it is not merged into main. Merge and deployment remain separately gated.
 
 This record documents the separately authorized C10 synthetic frontend
 slice and reconciles it with the historical Phase 4 scope recorded in
@@ -193,12 +197,12 @@ Any scope expansion requires explicit owner authorization and applicable
 architecture, dependency, security and license review. An accepted ADR
 conflict must follow the constitutional ADR change process.
 
-Historical implementation, verification and publication approvals are
-separate from the current approval to implement this governance reconciliation
-locally. Committing or publishing this reconciliation requires separate
-authorization. PR review approval, merge authorization and production
-deployment authorization are also separate decisions. None is supplied
-by this record.
+Historical C10 implementation, verification and publication approvals
+are distinct from C10.14B2/B3 approval of local reconciliation and
+C10.14B5 approval of its commit and push. Those bounded publication
+actions are complete. PR review approval, merge authorization and
+production deployment authorization remain separate decisions;
+this record grants none of them.
 
 ## Preserved governance
 
@@ -208,5 +212,6 @@ by this record.
 - GO-2026-5932: OPEN.
 - Operational Run creation, admission, dispatch and persistence: BLOCKED.
 
-GOV-01 remains unresolved until the owner-approved reconciliation is
-committed and reviewed. This local record does not close the thread.
+GOV-01 remediation is committed and independently verified. Reviewer
+acceptance and thread resolution remain pending; publication alone
+does not close the thread.
