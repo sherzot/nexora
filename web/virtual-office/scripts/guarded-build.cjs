@@ -4,7 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { policy, inspectNative } = require('./native-guard.cjs');
-const lockHash = '9933f51002748b831cea99633ac66c66d0e7cfe20bdb464affc56344e0ebd4bc';
+const lockHash = '304c48feb9c924a28aa7051bede55af07500e53e96b8a80f3a7d26fe363ccaf2';
 const sandbox = '/usr/bin/sandbox-exec';
 const profile = '(version 1) (allow default) (deny network*)';
 
