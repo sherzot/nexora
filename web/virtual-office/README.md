@@ -22,11 +22,18 @@ Task/agent labels are presentation vocabulary, not Runtime lifecycle states.
 
 ## Dependency and execution boundary
 
-Exact direct pins: react 19.2.4, react-dom 19.2.4, typescript 5.9.3, vite 8.3.5,
-@types/react 19.2.14 and @types/react-dom 19.2.3. No plugin, router, UI kit,
-icon/font service, state library, WebGL or additional dependency is introduced.
-The C10.6 lockfile is retained unchanged: lockfile v3, with 47 package entries.
-Of these, 23 packages apply to the reviewed macOS ARM64 installation. C10.10D2-F1
+Current exact direct pins: react 19.2.4, react-dom 19.2.4, typescript 5.9.3,
+vite 8.3.5, @types/react 19.2.14, @types/react-dom 19.2.3, three 0.186.1 and
+@types/three 0.186.0. Commit `10f728e5441f660256caae5aee8de5f12bd2d841`
+added the two Three.js pins and six reviewed transitive records. The current
+lockfile is v3 with 55 non-root package records; all 47 C10 records are unchanged.
+No Three.js runtime import or WebGL renderer is implemented. No plugin, router,
+UI kit, remote font service or additional dependency is authorized here.
+See [C11 dependency and readiness status](../../docs/governance/C11-dependency-integration-status.md)
+for the exact closure, authorization limits and unresolved evidence findings.
+
+Historically, C10.6 used a v3 lockfile with 47 non-root package records, of which
+23 packages applied to the reviewed macOS ARM64 installation. C10.10D2-F1
 materialized that previously verified installation into local, ignored
 `node_modules` and compared every regular-file hash, permission and internal
 symlink target. No installation or dependency resolution occurred during that copy.
@@ -61,6 +68,24 @@ on macOS ARM64 during C10.10E-C. It completed both `tsc --noEmit` and
 stderr. Fresh-checkout installation and clean-checkout reproducibility remain
 unverified.
 None of these results is a production-readiness or GitHub CI claim.
+
+The subsequent GOV-01/C11 readiness assessment verified the installed TypeScript
+5.9.3 files against its pinned archive, then ran the following direct commands
+with Node 22.18.0, native addons disabled and an OS sandbox profile denying
+network, file writes and subprocess creation:
+
+- `node --no-addons tests/native-guard.test.cjs`: 21/21 mocked tests PASS.
+- `node --no-addons node_modules/typescript/bin/tsc --noEmit`: exit 0.
+- `node --no-addons tests/fixture-integrity.mjs`: 30 synthetic records PASS.
+
+All three commands exited 0 with empty stderr. npm and a production build were
+not run in that assessment. These results verify the current synthetic frontend
+and mocked boundary; they do not verify an unimplemented renderer or clear the
+historical C11.3J3 recovery-integrity BLOCKED result. The proposed
+[renderer plan](../../docs/architecture/C11-virtual-office-renderer-plan.md)
+has subsequent bounded owner implementation GO for C11-M1 orbit/pan/zoom.
+First-person exploration and operational behavior are outside that slice.
+
 Do not execute installation, build or preview commands without separate owner
 authorization and approved local dependency availability:
 
@@ -172,7 +197,8 @@ in C10.10E-B without the external declaration-resolution workaround.
 ## Remaining clean-checkout limitations
 
 The 29 frontend source/configuration files are committed on
-`feat/c10-hybrid-virtual-office`. PR #15 remains Draft and unmerged; current
+`feat/c10-hybrid-virtual-office`. PR #15 is open, ready for review and unmerged
+at the readiness assessment; current
 `main` does not contain this frontend. Fresh committed-source Git archive
 reproduction passed in C10.12B for macOS ARM64, Node 22.18.0 / npm 11.5.2 and
 the approved offline cache. The complete repository-local npm build sequence
