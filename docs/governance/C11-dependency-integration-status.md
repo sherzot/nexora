@@ -75,8 +75,10 @@ are the only build-addon allowances. Exact fsevents denial remains nonfatal;
 unexpected attempts and approved-load failures remain fatal. JavaScript hooks
 are not OS process isolation. No native allowance extends to browser features.
 
-No Three.js runtime import, renderer, backend integration or operational agent
-capability has been added. Dependency approval does not authorize addons,
+Commit `10f728e5441f660256caae5aee8de5f12bd2d841` added no Three.js runtime
+import or renderer. The subsequent separately authorized C11-M1 slice adds only
+synthetic procedural rendering; backend and operational capabilities remain
+excluded. Dependency approval does not authorize addons,
 examples, loaders, remote assets, XR, physics, WASM, workers or additional pins.
 Retained license inventory records MIT for seven added packages and Apache-2.0
 for Rapier; bundled notice completeness and future redistribution remain separate
