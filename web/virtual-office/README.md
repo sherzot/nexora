@@ -274,3 +274,38 @@ uncaught application errors were observed. The browser's automatic favicon
 request returned 404; the forced unsupported-WebGL/context-loss cases emitted
 expected diagnostic messages. Screenshots and native audit remain local ignored
 verification artifacts; they are not GitHub CI evidence.
+
+## C11-M2 experience
+
+The owner-authorized C11-M2 slice adds four furnished zones, fixture-derived status
+badges, hover/selected emphasis, zone navigation, explicit agent focus and optional
+Follow selection. Focus/reset uses a bounded 480 ms camera transition; either the
+Workspace reduced-motion setting or system preference snaps immediately. Pointer,
+keyboard and zoom input cancel an in-progress transition. No idle animation runs.
+
+The scene batches repeated static furniture by shared geometry/material, while
+keeping avatar hit meshes independent. Geometry/materials and instance buffers
+are owned by the renderer lifetime. Mobile retains SVG by default, with an explicit
+3D choice, zoom buttons and adaptive overview framing. The renderer chunk is not
+requested by the default mobile SVG path.
+
+Additional verification commands:
+
+- `node --no-addons tests/office-experience.test.mjs` — five camera/transition cases.
+- `tests/office-experience-browser.mjs` — injected existing Chromium Playwright Page;
+  checks hover pixels, all four zone cameras, follow-selection, GPU camera reset,
+  reduced motion, unmount during transition and mobile zoom/fallback. Installs nothing.
+
+Measured desktop browser draw calls were 176 per frame in M1, versus 124 on the
+first M2 shadow-building frame and 65 on subsequent camera frames in the same
+1440×1000 viewport. Static shadows are built once per renderer lifetime; selection
+rings do not cast shadows. This is a draw-call result,
+not a frame-rate or cross-device guarantee. The lazy renderer chunk remains above
+500 kB (about 544 kB minified); Three.js's WebGL renderer and shared core are its
+principal payload. No new dependency, private Three.js import, custom dependency
+build or warning suppression is introduced to disguise that size.
+
+All six views, fixture identities, native allowlist, lockfile and operational
+exclusions remain unchanged. This implementation is not deployment permission.
+D02 NOT ACCEPTED; O1–O5 and GO-2026-5932 OPEN; normative obligations REVIEW ONLY;
+operational Run creation/admission/dispatch/persistence BLOCKED.

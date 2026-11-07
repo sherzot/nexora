@@ -71,7 +71,7 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
     frames: window.__officeAudit.frames.size,
     listeners: [...window.__officeAudit.listeners.values()].reduce((sum, events) => sum + [...events.values()].reduce((n, set) => n + set.size, 0), 0),
   }));
-  await page.waitForTimeout(100);
+  await page.waitForFunction(() => window.__officeAudit.frames.size === 0);
   const mounted = await metrics();
   for (let i = 0; i < 5; i++) {
     await page.getByRole('button', { name: '2D floor plan' }).click();
