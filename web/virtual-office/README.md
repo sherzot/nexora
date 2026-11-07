@@ -27,7 +27,9 @@ vite 8.3.5, @types/react 19.2.14, @types/react-dom 19.2.3, three 0.186.1 and
 @types/three 0.186.0. Commit `10f728e5441f660256caae5aee8de5f12bd2d841`
 added the two Three.js pins and six reviewed transitive records. The current
 lockfile is v3 with 55 non-root package records; all 47 C10 records are unchanged.
-No Three.js runtime import or WebGL renderer is implemented. No plugin, router,
+C11-M1 adds a lazy-loaded procedural Three.js office with bounded orbit/pan/zoom,
+eight fixture-owned selectable markers and the existing React inspector. The
+original SVG is retained as the explicit 2D, mobile and WebGL-failure fallback. No plugin, router,
 UI kit, remote font service or additional dependency is authorized here.
 See [C11 dependency and readiness status](../../docs/governance/C11-dependency-integration-status.md)
 for the exact closure, authorization limits and unresolved evidence findings.
@@ -233,3 +235,42 @@ D02 remains NOT ACCEPTED. Definition/Instance and Task/Assignment obligations
 remain REVIEW ONLY. O1–O5 and GO-2026-5932 remain OPEN. Operational Run creation,
 admission, dispatch and persistence remain BLOCKED. No permanent frontend ADR,
 production deployment or operational integration is accepted by this mock slice.
+
+## C11-M1 local verification
+
+The owner authorized the bounded implementation in “COMPLETE PENDING PRs AND
+IMPLEMENT C11-M1 3D VIRTUAL OFFICE”. No first-person controls, new dependencies,
+addons, physics, WASM, workers, external assets or operational integration are added.
+Selection remains React-owned. Camera changes are immediate, with no idle or
+animated motion; leaving the route disposes the renderer and resets the camera.
+
+Commands from this directory using Node 22.18.0:
+
+- `node --no-addons node_modules/typescript/bin/tsc --noEmit`
+- `node --no-addons tests/native-guard.test.cjs` — 21 mocked guard cases.
+- `node --no-addons tests/fixture-integrity.mjs` — 30 synthetic records.
+- `node --no-addons tests/office-renderer.test.mjs` — selection, camera bounds,
+  lifetime cleanup and import restrictions.
+- `node scripts/guarded-build.cjs` — fixed sandboxed Vite child; never bypass it.
+
+`tests/office-browser-checks.mjs` exports a browser regression function accepting
+an existing approved Playwright Page and a loopback static-server origin. It
+installs nothing. It covers all eight canvas/list selections, six views,
+remount/context-loss cleanup, theme, mobile and unsupported-WebGL fallback.
+Keep browser evidence separate from compiler and mocked-test results.
+
+The Three.js renderer chunk exceeds Vite's default 500 kB warning threshold;
+it is lazy-loaded and is not requested by the default mobile SVG path. No FPS,
+cross-browser or production-readiness claim follows. Historical forensic gaps
+and GOV-01 reviewer acceptance remain unresolved.
+
+Observed C11-M1 verification: all four direct checks above exited 0 (21 guard
+cases, 30 records and nine office regressions). The guarded build completed with
+two approved native loads, one expected fsevents denial and final fatal=false.
+Chrome 156 passed the browser regression at 1440×1000 and 390×844, including all
+eight canvas and keyboard selections, six views, dark theme, five remounts,
+context-loss cleanup and unsupported-WebGL fallback. No external requests or
+uncaught application errors were observed. The browser's automatic favicon
+request returned 404; the forced unsupported-WebGL/context-loss cases emitted
+expected diagnostic messages. Screenshots and native audit remain local ignored
+verification artifacts; they are not GitHub CI evidence.

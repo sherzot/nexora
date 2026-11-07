@@ -43,7 +43,7 @@ export default function App() {
   const active = route.view === 'agent' ? 'agents' : route.view;
   let content;
   switch (route.view) {
-    case 'office': content = <OfficeOverview />; break;
+    case 'office': content = <OfficeOverview dark={theme === 'dark'} />; break;
     case 'agents': content = <AgentDirectory />; break;
     case 'agent': content = <AgentDetail id={route.agentId ?? ''} />; break;
     case 'tasks': content = <TaskBoard focusedId={route.taskId} />; break;
