@@ -26,19 +26,27 @@ export default async function checkExperience(page, origin = 'http://127.0.0.1:4
     };
   });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.setViewportSize({ width: 1440, height: 1400 });
   await page.goto(`${origin}/#/office`); await page.waitForSelector('canvas'); await page.waitForTimeout(200);
   const canvas = page.locator('canvas');
   const capture = async () => {
+    if (page.viewportSize().width > 700) await page.evaluate(() => scrollTo(0, 0));
     let clip = await canvas.boundingBox();
     if (clip.y < 0 || clip.y + clip.height > page.viewportSize().height) { await canvas.scrollIntoViewIfNeeded(); clip = await canvas.boundingBox(); }
-    const scroll = await page.evaluate(() => ({ x: scrollX, y: scrollY }));
-    clip = { ...clip, x: clip.x + scroll.x, y: clip.y + scroll.y };
-    // The approved browser wrapper moves the pointer for ordinary screenshots.
-    // Chromium's capture endpoint preserves hover while comparing actual pixels.
+    // Capture the viewport without resizing it, then compare scene pixels above
+    // the DOM caption. A clipped CDP capture can itself cause pointerleave.
     const session = await page.context().newCDPSession(page);
-    try { const image = await session.send('Page.captureScreenshot', { format: 'png', clip: { ...clip, scale: 1 }, captureBeyondViewport: true }); return Buffer.from(image.data, 'base64'); }
-    finally { await session.detach(); }
+    try {
+      const image = await session.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      const pixels = await page.evaluate(async ({ data, clip }) => {
+        const image = new Image(); image.src = 'data:image/png;base64,' + data; await image.decode();
+        const scale = image.naturalWidth / innerWidth;
+        const canvas = document.createElement('canvas'); canvas.width = Math.round(clip.width); canvas.height = Math.round(clip.height - 110);
+        canvas.getContext('2d').drawImage(image, clip.x * scale, clip.y * scale, clip.width * scale, (clip.height - 110) * scale, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL().split(',')[1];
+      }, { data: image.data, clip });
+      return Buffer.from(pixels, 'base64');
+    } finally { await session.detach(); }
   };
   await canvas.scrollIntoViewIfNeeded();
   await page.mouse.move(0, 0); await page.waitForTimeout(100);

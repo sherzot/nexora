@@ -73,6 +73,9 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
   }));
   await page.waitForFunction(() => window.__officeAudit.frames.size === 0);
   const mounted = await metrics();
+  await page.getByRole('button', { name: '2D floor plan' }).click();
+  const appBaseline = await metrics();
+  await page.getByRole('button', { name: '3D office' }).click(); await page.waitForSelector('canvas');
   for (let i = 0; i < 5; i++) {
     await page.getByRole('button', { name: '2D floor plan' }).click();
     assert(await canvas.count() === 0, '2D must unmount the GPU canvas');
@@ -84,12 +87,12 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
   await canvas.evaluate((element) => element.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await page.waitForSelector('svg.office-scene'); await page.waitForTimeout(100);
   const released = await metrics();
-  assert(Object.values(released).every((value) => value === 0), 'Context-loss fallback must release resources');
+  assert(released.canvas === 0 && released.observers === 0 && released.frames === 0 && released.listeners === appBaseline.listeners, 'Context-loss fallback must release renderer resources while preserving application listeners');
   for (const route of ['/agents', '/agents/demo-agent-ada', '/tasks', '/activity', '/workspace']) {
     await page.evaluate((hash) => { location.hash = hash; }, route); await page.waitForTimeout(100);
     assert(await page.locator('#page-title').count() === 1 && await canvas.count() === 0, `Route ${route}`);
   }
-  await page.locator('select').selectOption('dark');
+  await page.getByRole('combobox', { name: /Theme/ }).selectOption('dark');
   await page.evaluate(() => { location.hash = '/office'; }); await page.waitForSelector('canvas');
   assert(await page.locator('.app-shell').getAttribute('data-theme') === 'dark', 'Dark theme');
   await page.setViewportSize({ width: 390, height: 844 }); await page.reload(); await page.waitForSelector('svg.office-scene');
@@ -107,5 +110,5 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
   assert((await unsupported.getByRole('status').textContent()).includes('unavailable'), 'Initialization failure must explain fallback');
   await unsupported.close();
   assert(external.length === 0 && errors.length === 0, 'No external requests or uncaught application errors');
-  return { canvasAgents: 8, keyboardAgents: 8, mounted, remounted, released, routes: 6, mobile: 'PASS', unsupportedWebGL: 'PASS', external, errors };
+  return { canvasAgents: 8, keyboardAgents: 8, mounted, remounted, released, appBaseline, routes: 6, mobile: 'PASS', unsupportedWebGL: 'PASS', external, errors };
 }

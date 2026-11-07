@@ -309,3 +309,47 @@ All six views, fixture identities, native allowlist, lockfile and operational
 exclusions remain unchanged. This implementation is not deployment permission.
 D02 NOT ACCEPTED; O1–O5 and GO-2026-5932 OPEN; normative obligations REVIEW ONLY;
 operational Run creation/admission/dispatch/persistence BLOCKED.
+
+## C11-M3 synthetic simulation
+
+The C11-M3 owner instruction authorizes only this browser-local demonstration.
+`src/simulation/` separates readonly models, seeded scenario plans, pure transitions,
+selectors, a playback controller and React adapters. Existing fixture IDs and task
+references remain authoritative; no fixture or dependency is changed.
+
+Normal Office Day, Team Collaboration and Review Workflow Demonstration each run
+for at most 32 virtual ticks of 500 ms. The seed defaults to 42. State changes,
+positions, event IDs and ordering depend on the seed and tick, never Date.now or
+elapsed wall time. The controller's one cancellable timeout determines when the
+next explicit tick is requested, at 1×, 2× or 4×; browser delays never cause catch-up
+or skipped ticks. Pausing cancels it; a hidden tab pauses explicitly. Reset and
+scenario switching clear snapshots and derived view state. History is capped at
+128 events. All activity labels and task transitions are synthetic, not Runtime,
+Workflow or Approval events.
+
+One provider owns the playback snapshot and selected agent across all six views.
+The Office inspector, simulation timeline and task columns derive from it. Event
+selection opens the corresponding agent in Office. Three.js only interpolates
+logical positions from snapshots; paused playback freezes the current visual
+position, paused steps and reduced motion snap to the new logical position. SVG
+uses the same logical positions. No perpetual idle renderer loop is added.
+Architecture shadows stay cached; moving avatars do not cast baked ghost shadows.
+
+Additional checks:
+
+- `node --no-addons tests/simulation.test.mjs` — deterministic replay, seed changes,
+  transitions, references/order, paths, scheduler control, reset, speed and cleanup.
+- `tests/simulation-browser.mjs` — injected existing approved Playwright Page;
+  movement, cross-view controls, timeline/task synchronization, pause safety,
+  reset replay, reduced motion and mobile SVG. Installs nothing.
+
+The M1/M2 browser suites remain applicable while simulation is inactive. Their
+resource check distinguishes the provider's visibility listener from renderer-owned
+listeners; canvas teardown must return to the same application baseline. Pixel
+checks capture the foreground viewport without changing its size or moving the
+pointer, then inspect the scene region above the DOM caption.
+
+No network, backend, operational persistence, provider, tool, worker, WASM or
+physics capability is added. No deployment permission is implied. Historical
+forensic restrictions, D02 NOT ACCEPTED, normative obligations REVIEW ONLY,
+O1–O5 OPEN, GO-2026-5932 OPEN and operational Run blocking remain unchanged.

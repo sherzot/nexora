@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { SimulationControls } from './simulation/SimulationControls';
+import { useSimulation } from './simulation/SimulationProvider';
 import { AppShell } from './components/AppShell';
 import { OfficeOverview } from './views/OfficeOverview';
 import { AgentDirectory } from './views/AgentDirectory';
@@ -23,6 +25,7 @@ function routeFromHash(hash: string): Route {
 }
 
 export default function App() {
+  const { view: simulation, controller } = useSimulation();
   const [hash, setHash] = useState(() => window.location.hash);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -37,7 +40,7 @@ export default function App() {
     document.getElementById('page-title')?.focus({ preventScroll: true });
   }, [hash, resetVersion]);
   const reset = () => {
-    setTheme('light'); setReducedMotion(false); setResetVersion((value) => value + 1);
+    controller.reset(); setTheme('light'); setReducedMotion(false); setResetVersion((value) => value + 1);
     window.location.hash = '/office';
   };
   const active = route.view === 'agent' ? 'agents' : route.view;
@@ -51,5 +54,5 @@ export default function App() {
     case 'workspace': content = <WorkspaceOverview theme={theme} onTheme={setTheme} reducedMotion={reducedMotion} onMotion={setReducedMotion} onReset={reset} />; break;
     default: content = <section className="empty-state"><p className="eyebrow">UNKNOWN LOCAL ROUTE</p><h1 id="page-title" tabIndex={-1}>This room is not on the map</h1><p>No demo view matches this address.</p><a className="primary-link" href="#/office">Return to the office</a></section>;
   }
-  return <AppShell key={resetVersion} active={active} theme={theme} reducedMotion={reducedMotion}><div key={`${route.view}:${route.agentId ?? ''}:${route.taskId ?? ''}:${resetVersion}`} className="view-content">{content}</div></AppShell>;
+  return <AppShell key={resetVersion} active={active} theme={theme} reducedMotion={reducedMotion}><SimulationControls /><div key={`${simulation.epoch}:${route.view}:${route.agentId ?? ''}:${route.taskId ?? ''}:${resetVersion}`} className="view-content">{content}</div></AppShell>;
 }
