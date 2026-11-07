@@ -353,3 +353,55 @@ No network, backend, operational persistence, provider, tool, worker, WASM or
 physics capability is added. No deployment permission is implied. Historical
 forensic restrictions, D02 NOT ACCEPTED, normative obligations REVIEW ONLY,
 O1–O5 OPEN, GO-2026-5932 OPEN and operational Run blocking remain unchanged.
+
+## C11-M4 synthetic analytics
+
+Owner-authorized C11-M4 adds a seventh, read-only Simulation Analytics view; the
+six existing frontend views remain available. `src/analytics/` separates metric
+models/definitions, pure calculations, event selectors, comparison and report
+serialization. It changes neither the simulation engine nor its snapshots.
+
+Metric contract:
+
+- Time is integer virtual milliseconds. State at tick k owns [k×500, (k+1)×500);
+  the current tick is right-censored. Paused wall time is excluded.
+- Active time = moving + working + collaborating + reviewing. Idle + completed
+  time is inactive. Utilization = active agent-ms / observed eligible agent-ms.
+- Agent scope is all eight fixtures or one selected fixture agent. Task completion
+  uses distinct fixture tasks linked to that scope; unassigned examples are not
+  removed from the denominator. Current status counts use snapshot state.
+- Logical zone attribution uses event zoneId, not GPU position. Moving time belongs
+  to the source zone until the authoritative arrival event.
+- Percentages use integer basis points with half-up rounding. A zero denominator
+  or incomplete activity history produces unavailable values (—/null), not an
+  invented estimate. Progress is current tick / 32.
+
+Comparison evaluates the three existing pure scenarios locally at the same seed,
+agent scope and explicit tick horizon, without advancing playback. Equal event,
+utilization and completion totals are expected when phase durations match; zone
+attribution and activity mix can differ. These are not employee productivity metrics.
+
+Simulation timeline filters combine agent, activity, zone, inclusive tick range
+and description search. Filtering copies/derives the event list without altering
+history. Event details and Office selection remain synchronized. Inactive fixture
+timeline behavior is preserved; virtual-time filters apply to simulation events.
+
+JSON and CSV exports use schema version 1, stable field/record order, scenario/seed/
+horizon metadata, scope, definitions, per-agent durations, tasks and comparisons.
+No generated timestamp or wall-clock data enters report contents. CSV uses CRLF,
+quote escaping and spreadsheet-formula neutralization for text cells. One report
+Blob URL is retained at most and revoked on replacement or analytics unmount.
+Reports are downloaded only on an explicit button action; there is no backend store.
+
+Additional verification:
+
+- `node --no-addons tests/analytics.test.mjs` — metric/interval correctness,
+  denominators, incomplete inputs, comparison, immutability, filtering and exports.
+- `tests/analytics-browser.mjs` — injected existing approved Playwright Page;
+  actual repeated JSON/CSV downloads are byte-compared, timeline/filter/reset
+  synchronization, theme/mobile/reduced-motion access and Blob cleanup checked.
+
+The M3 renderer asset is unchanged. Analytics uses lightweight SVG/CSS, memoized
+bounded derivations and local comparisons of at most 3×32 ticks. No chart library,
+renderer animation loop, external observability service, telemetry ingestion,
+operational capability, dependency, native permission or deployment is introduced.
