@@ -5,14 +5,14 @@ import { AgentAvatar } from '../components/AgentAvatar';
 import { StatusLabel } from '../components/StatusLabel';
 import { OfficeViewport } from '../office/OfficeViewport';
 
-export function OfficeOverview({ dark = false }: { dark?: boolean }) {
+export function OfficeOverview({ dark = false, reducedMotion = false }: { dark?: boolean; reducedMotion?: boolean }) {
   const [selectedId, setSelectedId] = useState<string>(agents[0].id);
   const selected = findAgent(selectedId);
   return <>
     <section className="page-heading"><div><p className="eyebrow">A PLACE FOR THE TEAM</p><h1 id="page-title" tabIndex={-1}>Virtual Office<span className="heading-dot">.</span></h1><p className="page-description">A shared view of a fictional engineering team. Explore the space, then look closer.</p></div><span className="quiet-label">Floor 01 <span aria-hidden="true">↗</span></span></section>
     <div className="office-summary"><span><strong>{agents.length}</strong> synthetic agents</span><span><strong>{rooms.length}</strong> rooms</span><span><span className="small-blue-dot" aria-hidden="true" />Fixed scene · no live activity</span></div>
     <div className="office-layout">
-      <section className="office-canvas" aria-label="Office floor plan"><div className="scene-toolbar"><span className="scene-label">THE WORKSPACE</span><span>Explore · Select an agent</span></div><OfficeViewport selectedId={selectedId} onSelect={setSelectedId} dark={dark} /><div className="scene-legend"><span><i className="legend-dot focused" />Focused</span><span><i className="legend-dot available" />Available</span><span><i className="legend-dot reviewing" />Reviewing</span><span><i className="legend-dot away" />Away</span><span className="legend-note">Presentation labels only</span></div></section>
+      <section className="office-canvas" aria-label="Office floor plan"><div className="scene-toolbar"><span className="scene-label">THE WORKSPACE</span><span>Explore · Select an agent</span></div><OfficeViewport selectedId={selectedId} onSelect={setSelectedId} dark={dark} reducedMotion={reducedMotion} /><div className="scene-legend"><span><i className="legend-dot focused" />Focused</span><span><i className="legend-dot available" />Available</span><span><i className="legend-dot reviewing" />Reviewing</span><span><i className="legend-dot away" />Away</span><span className="legend-note">Presentation labels only</span></div></section>
       <aside className="agent-inspector" aria-label="Selected synthetic agent" aria-live="polite">
         <p className="eyebrow">IN FOCUS</p>
         {selected ? <><AgentAvatar agent={selected} large /><h2>{selected.name}</h2><p className="inspector-role">{selected.role}</p><StatusLabel status={selected.status} /><dl className="detail-facts"><div><dt>Room</dt><dd>{findRoom(selected.roomId)?.name ?? 'Unknown demo room'}</dd></div><div><dt>Specialty</dt><dd>{selected.specialty}</dd></div><div><dt>Demo tasks</dt><dd>{tasksForAgent(selected.id).length} linked examples</dd></div></dl><a className="primary-link" href={agentHref(selected.id)}>View agent details <span aria-hidden="true">↗</span></a><p className="inspector-note">This is a synthetic profile. Selecting it does not assign work or initiate an operation.</p></> : <p className="empty-state">Select an agent from the scene or list.</p>}

@@ -34,3 +34,21 @@ export function createLifetime() {
     },
   };
 }
+
+export function focusPoint(state: OrbitState, x: number, z: number, distance = 23): OrbitState {
+  if (![x, z, distance].every(Number.isFinite)) return state;
+  return { ...state, x: clamp(x, -6, 6), z: clamp(z, -4, 4), pitch: 0.88, distance: clamp(distance, 20, 48) };
+}
+/** A bounded transition, not an idle animation; follows the shortest yaw arc. */
+export function transitionOrbit(from: OrbitState, to: OrbitState, progress: number): OrbitState {
+  const p = clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
+  if (p === 1) return { ...to };
+  const eased = 1 - (1 - p) ** 3;
+  const yawDelta = Math.atan2(Math.sin(to.yaw - from.yaw), Math.cos(to.yaw - from.yaw));
+  return { yaw: from.yaw + yawDelta * eased, pitch: from.pitch + (to.pitch - from.pitch) * eased,
+    distance: from.distance + (to.distance - from.distance) * eased,
+    x: from.x + (to.x - from.x) * eased, z: from.z + (to.z - from.z) * eased };
+}
+export function overviewForAspect(aspect: number): OrbitState {
+  return { ...initialOrbit(), distance: clamp(38 * 1.4 / Math.max(0.5, aspect), 38, 48) };
+}
