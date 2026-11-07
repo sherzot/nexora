@@ -1,9 +1,11 @@
 import { AmbientLight, BoxGeometry, Color, CylinderGeometry, DirectionalLight, Group, InstancedMesh, Mesh, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, Scene, SphereGeometry, TorusGeometry, Vector2, WebGLRenderer } from 'three';
+import type { Snapshot } from '../../simulation/model';
 import type { OrbitState } from './runtime';
 import type { DemoAgent, DemoRoom } from '../../demo/model';
 import { createLifetime, focusPoint, initialOrbit, navigate, overviewForAspect, selectAgent, transitionOrbit, zoom } from './runtime';
 
 export interface OfficeRenderer {
+  setSimulation(snapshot: Snapshot | undefined, playing: boolean, speed: number): void;
   setSelection(id: string): void;
   zoomBy(delta: number): void;
   focusAgent(id: string): void;
@@ -105,6 +107,9 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     mesh(box, wallMat, 6, 0.55, 0.35, 10, 1.1, 0.12);
     const pickables: Mesh[] = [];
     const highlights = new Map<string, Mesh>();
+    const avatars = new Map<string, Group>();
+    const badges = new Map<string, Mesh>();
+    const staticBadgeMaterials = new Map<string, MeshStandardMaterial>();
     const agentPositions = new Map<string, { x: number; z: number }>();
     const validIds = new Set<string>(agents.map((agent) => agent.id));
     for (const agent of agents) {
@@ -128,6 +133,9 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       const badge = mesh(sphere, statusMats[agent.status], 0.38, 1.9, 0, 0.12, 0.12, 0.12, avatar);
       badge.userData.agentId = agent.id; pickables.push(badge);
       agentPositions.set(agent.id, { x, z: z + 1.5 });
+      avatars.set(agent.id, avatar); badges.set(agent.id, badge); staticBadgeMaterials.set(agent.id, statusMats[agent.status]);
+      // Avatar movement is presentation-only; static architecture shadows remain cached.
+      for (const child of avatar.children) if (child instanceof Mesh) child.castShadow = false;
       const halo = mesh(ring, selection, 0, 0.1, 0, 1, 1, 1, avatar); halo.rotation.x = -Math.PI / 2; halo.castShadow = false;
       highlights.set(agent.id, halo);
     }
@@ -161,6 +169,17 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     let transition: { from: OrbitState; to: OrbitState; start: number } | undefined;
     let reduced = reducedMotion;
     let overview = true;
+    let simulated: Snapshot | undefined;
+    let motionStart = 0, motionDuration = 500, movement = false;
+    let lastSpeed = 1;
+    const targets = new Map<string, { fromX: number; fromZ: number; x: number; z: number }>();
+    const snapPositions = () => {
+      for (const agent of agents) {
+        const position = simulated?.agents.find((item) => item.id === agent.id)?.position ?? agentPositions.get(agent.id)!;
+        avatars.get(agent.id)?.position.set(position.x, 0, position.z);
+      }
+      movement = false; targets.clear();
+    };
     let hovered: string | undefined;
     let frameId = 0;
     const updateHighlights = () => {
@@ -184,11 +203,16 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
         orbit = transitionOrbit(transition.from, transition.to, progress);
         if (progress >= 1) transition = undefined;
       }
+      if (movement) {
+        const progress = Math.min(1, Math.max(0, (time - motionStart) / motionDuration));
+        for (const [id, target] of targets) avatars.get(id)?.position.set(target.fromX + (target.x - target.fromX) * progress, 0, target.fromZ + (target.z - target.fromZ) * progress);
+        if (progress >= 1) { movement = false; targets.clear(); }
+      }
       const horizontal = Math.cos(orbit.pitch) * orbit.distance;
       camera.position.set(orbit.x + Math.sin(orbit.yaw) * horizontal, Math.sin(orbit.pitch) * orbit.distance, orbit.z + Math.cos(orbit.yaw) * horizontal);
       camera.lookAt(orbit.x, 0, orbit.z); camera.updateMatrixWorld();
       try { renderer.render(scene, camera); } catch { transition = undefined; fail(); }
-      if (transition) invalidate();
+      if (transition || movement) invalidate();
     };
     const invalidate = () => { if (!life.disposed && !frameId && !document.hidden) frameId = requestAnimationFrame(render); };
     const moveTo = (target: OrbitState) => {
@@ -198,7 +222,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       invalidate();
     };
     const cancelTransition = () => { transition = undefined; overview = false; clearHover(); };
-    life.own(() => { transition = undefined; cancelAnimationFrame(frameId); });
+    life.own(() => { transition = undefined; movement = false; targets.clear(); cancelAnimationFrame(frameId); });
     const listen = <K extends keyof HTMLElementEventMap>(target: HTMLElement, event: K, fn: (e: HTMLElementEventMap[K]) => void, options?: AddEventListenerOptions) => {
       target.addEventListener(event, fn, options); life.own(() => target.removeEventListener(event, fn, options));
     };
@@ -274,17 +298,48 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     life.own(() => document.removeEventListener('visibilitychange', visibility));
     updateHighlights(); invalidate();
     return {
+      setSimulation(snapshot, playing, speed) {
+        if (life.disposed) return;
+        const sameTick = simulated?.tick === snapshot?.tick && simulated?.scenario === snapshot?.scenario && simulated?.seed === snapshot?.seed;
+        simulated = snapshot;
+        let changed = false;
+        const activities = { idle: statusMats.Away, moving: statusMats.Focused, working: statusMats.Focused, collaborating: statusMats.Available, reviewing: statusMats.Reviewing, completed: statusMats.Available };
+        for (const agent of agents) {
+          const badge = badges.get(agent.id)!;
+          const activity = snapshot?.agents.find((item) => item.id === agent.id)?.activity;
+          const material = activity ? activities[activity] : staticBadgeMaterials.get(agent.id)!;
+          if (badge.material !== material) { badge.material = material; changed = true; }
+        }
+        if (!snapshot) { snapPositions(); changed = true; }
+        else if (!sameTick) {
+          if (reduced || !playing) { snapPositions(); changed = true; }
+          else {
+            targets.clear();
+            for (const agent of snapshot.agents) {
+              const position = avatars.get(agent.id)!.position;
+              if (position.x !== agent.position.x || position.z !== agent.position.z) targets.set(agent.id, { fromX: position.x, fromZ: position.z, x: agent.position.x, z: agent.position.z });
+            }
+            motionStart = performance.now(); motionDuration = 500 / speed; movement = targets.size > 0;
+          }
+        } else if (!playing) { movement = false; targets.clear(); }
+        else if (movement && lastSpeed !== speed) {
+          for (const [id, target] of targets) { const position = avatars.get(id)!.position; target.fromX = position.x; target.fromZ = position.z; }
+          motionStart = performance.now(); motionDuration = 500 / speed;
+        }
+        lastSpeed = speed;
+        if (changed || movement) invalidate();
+      },
       setSelection(id) { if (life.disposed || !validIds.has(id)) return; selected = id; updateHighlights(); invalidate(); },
       zoomBy(delta) { if (life.disposed) return; cancelTransition(); orbit = zoom(orbit, delta); invalidate(); },
       focusAgent(id) {
-        const point = agentPositions.get(id); if (life.disposed || !point) return;
+        const point = avatars.get(id)?.position; if (life.disposed || !point) return;
         overview = false; moveTo(focusPoint(orbit, point.x, point.z));
       },
       focusZone(id) {
         const room = rooms.find((item) => item.id === id); if (life.disposed || !room) return;
         overview = false; moveTo(focusPoint(orbit, 2.4 * (room.x + room.width / 2) - 12, 2.4 * (room.y + room.depth / 2) - 8.4, 27));
       },
-      setReducedMotion(value) { reduced = value; if (reduced && transition) { orbit = transition.to; transition = undefined; invalidate(); } },
+      setReducedMotion(value) { reduced = value; if (reduced && movement) { snapPositions(); invalidate(); } if (reduced && transition) { orbit = transition.to; transition = undefined; invalidate(); } },
       reset() { if (life.disposed) return; overview = true; moveTo(overviewForAspect(camera.aspect)); },
       dispose: () => life.dispose(),
     };

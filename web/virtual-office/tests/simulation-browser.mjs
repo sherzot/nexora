@@ -1,0 +1,48 @@
+/** Run with an existing approved Playwright Page; no package installation. */
+export default async function checkSimulation(page, origin = 'http://127.0.0.1:4191') {
+  page.setDefaultTimeout(10000); await page.bringToFront();
+  const assert = (value, label) => { if (!value) throw new Error(label); };
+  const external = [], errors = [];
+  page.on('request', (r) => { if (new URL(r.url()).origin !== origin) external.push(r.url()); });
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${origin}/#/office`); await page.waitForSelector('canvas');
+  const controls = page.getByRole('region', { name: 'Synthetic simulation controls' });
+  const clock = () => page.locator('.simulation-controls time').textContent();
+  const press = (name) => controls.getByRole('button', { name, exact: true }).click();
+  const step = async (count) => { for (let i = 0; i < count; i++) await press('Step forward'); };
+  await page.locator('canvas').scrollIntoViewIfNeeded(); const initial = await page.locator('canvas').screenshot();
+  await step(8); await page.waitForTimeout(100);
+  assert(await clock() === 'T+00:04.000', 'Explicit fixed virtual ticks');
+  assert(!initial.equals(await page.locator('canvas').screenshot()), 'Agents visibly move on controlled steps');
+  const paused = await clock(); await page.waitForTimeout(650); assert(await clock() === paused, 'Paused virtual time stays fixed');
+  await page.evaluate(() => { location.hash = '/activity'; }); await page.waitForSelector('[data-simulation-event]');
+  const events = await page.locator('[data-simulation-event]').evaluateAll((nodes) => nodes.map((n) => n.dataset.simulationEvent));
+  const eventCount = events.length; await page.getByRole('button', { name: 'Inspect Ada', exact: true }).first().click();
+  assert(await page.locator('.agent-inspector h2').textContent() === 'Ada', 'Event selection and inspector share agent identity');
+  await press('Reset simulation'); await step(8); await page.evaluate(() => { location.hash = '/activity'; }); await page.waitForSelector('[data-simulation-event]');
+  assert(JSON.stringify(events) === JSON.stringify(await page.locator('[data-simulation-event]').evaluateAll((nodes) => nodes.map((n) => n.dataset.simulationEvent))), 'Reset replay produces identical event IDs/order');
+  await page.getByRole('checkbox', { name: /Only selected agent/ }).check();
+  assert((await page.locator('.activity-timeline h2').allTextContents()).every((text) => text.startsWith('Ada')), 'Selected-agent timeline filter');
+  await controls.getByRole('combobox', { name: 'Scenario' }).selectOption('review');
+  assert(await clock() === 'T+00:00.000', 'Scenario switching resets clock');
+  await page.evaluate(() => { location.hash = '/tasks'; }); await step(32);
+  const statuses = await page.locator('.task-card .status-label').allTextContents();
+  assert(statuses.some((text) => text.includes('Done')), 'Task board reflects completed synthetic review tasks');
+  assert((await controls.textContent()).includes('finished'), 'Bounded playback finishes');
+  await controls.getByRole('combobox', { name: 'Scenario' }).selectOption('collaboration');
+  await controls.getByRole('combobox', { name: 'Speed', exact: true }).selectOption('4');
+  await press('Start'); await page.waitForTimeout(450); await press('Pause');
+  const fast = await clock(); assert(fast !== 'T+00:00.000', '4x playback progresses'); await page.waitForTimeout(400); assert(await clock() === fast, 'Pause cancels automatic ticks');
+  await press('Resume'); await page.waitForTimeout(250); await press('Pause'); assert(await clock() !== fast, 'Resume advances from paused snapshot');
+  await page.evaluate(() => { location.hash = '/office'; }); await page.waitForSelector('canvas');
+  const freeze = await page.locator('canvas').screenshot(); await page.waitForTimeout(300); assert(freeze.equals(await page.locator('canvas').screenshot()), 'Paused Three.js presentation is stationary');
+  await page.emulateMedia({ reducedMotion: 'reduce' }); await press('Reset simulation'); await step(6); await page.waitForTimeout(80);
+  const reduced = await page.locator('canvas').screenshot(); await page.waitForTimeout(250); assert(reduced.equals(await page.locator('canvas').screenshot()), 'Reduced motion uses fixed logical positions');
+  await page.setViewportSize({ width: 390, height: 844 }); await page.reload(); await page.waitForSelector('svg.office-scene');
+  await step(5); assert(await clock() === 'T+00:02.500', 'Mobile SVG controls share simulation clock');
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No mobile horizontal overflow');
+  await press('Reset simulation'); assert(await page.locator('.simulation-tag').count() === 0, 'Reset restores static fixture presentation');
+  assert(!external.length && !errors.length, 'No external/backend requests or uncaught errors');
+  return { deterministicEvents: eventCount, movement: 'PASS', controls: 'PASS', timeline: 'PASS', tasks: 'PASS', pauseSafe: 'PASS', reducedMotion: 'PASS', mobileSvg: 'PASS', external, errors };
+}

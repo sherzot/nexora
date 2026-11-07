@@ -1,9 +1,12 @@
+import { useSimulation } from '../simulation/SimulationProvider';
 import { useEffect, useRef, useState } from 'react';
 import { agents, rooms } from '../demo/fixtures';
 import { OfficeScene } from './OfficeScene';
 import type { OfficeRenderer } from './three/renderer';
 
 export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = false }: { selectedId: string; onSelect: (id: string) => void; dark: boolean; reducedMotion?: boolean }) {
+  const { view } = useSimulation();
+  const simulation = view.snapshot.active ? view.snapshot : undefined;
   const host = useRef<HTMLDivElement>(null);
   const renderer = useRef<OfficeRenderer | null>(null);
   const selection = useRef(selectedId);
@@ -53,6 +56,9 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
     if (follow && renderer.current) { renderer.current.focusAgent(selectedId); setZoneId(undefined); }
   }, [selectedId, follow, ready]);
   useEffect(() => { renderer.current?.setReducedMotion(reducedMotion || systemReduced); }, [reducedMotion, systemReduced, ready]);
+  useEffect(() => { renderer.current?.setSimulation(simulation, view.mode === 'playing', view.speed); }, [simulation, view.mode, view.speed, ready]);
+  const captionAgent = hovered ?? selected;
+  const captionActivity = simulation?.agents.find((agent) => agent.id === captionAgent?.id)?.activity ?? captionAgent?.status;
   return <>
     <div className="office-view-controls" role="group" aria-label="Office view">
       <button type="button" aria-pressed={!twoD} onClick={() => { setFailure(''); setTwoD(false); }}>3D office</button>
@@ -65,9 +71,9 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
         <label className="office-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow selection</label>
       </>}
     </div>
-    {twoD ? <OfficeScene selectedId={selectedId} onSelect={onSelect} /> : <div className="office-stage"><div ref={host} className="office-webgl" aria-busy={!ready} />
+    {twoD ? <OfficeScene selectedId={selectedId} onSelect={onSelect} simulation={simulation} /> : <div className="office-stage"><div ref={host} className="office-webgl" aria-busy={!ready} />
       {!ready && <div className="office-loading" role="status">Preparing your workspace…</div>}
-      {ready && <div className="office-scene-caption" aria-hidden="true"><span>{hovered ? 'HOVERING' : 'SELECTED'}</span><strong>{(hovered ?? selected)?.name}</strong><span>{(hovered ?? selected)?.status} · Synthetic profile</span></div>}
+      {ready && <div className="office-scene-caption" aria-hidden="true"><span>{hovered ? 'HOVERING' : 'SELECTED'}</span><strong>{(hovered ?? selected)?.name}</strong><span>{captionActivity} · Synthetic profile</span></div>}
     </div>}
     <p className="office-view-help" role="status">{failure || (twoD ? '2D floor plan · Select an agent in the scene or list.' : ready ? 'Drag to orbit · Shift-drag to pan · Scroll to zoom. Keyboard: arrows, Shift + arrows, + / −, Home.' : 'Preparing 3D office…')}</p>
     <div className="office-zone-key" aria-label="Office zones">{rooms.map((room) => <button type="button" key={room.id} data-zone={room.order} aria-pressed={zoneId === room.id} disabled={!twoD && !ready} onClick={() => {
