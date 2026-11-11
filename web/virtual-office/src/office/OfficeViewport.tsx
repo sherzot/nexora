@@ -32,10 +32,10 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
     return () => query.removeEventListener('change', change);
   }, []);
   useEffect(() => {
+    setReady(false); setHoveredId(undefined); setZoneId(undefined);
     if (twoD || !host.current) return;
     let cancelled = false;
     let instance: OfficeRenderer | undefined;
-    setReady(false); setHoveredId(undefined); setZoneId(undefined);
     import('./three/renderer').then(({ createOfficeRenderer }) => {
       if (cancelled || !host.current) return;
       instance = createOfficeRenderer(host.current, agents, rooms, selection.current, dark, (id) => callback.current(id), (reason) => { if (!cancelled) { setFailure(reason); setTwoD(true); } }, (id) => { if (!cancelled) setHoveredId(id); }, motion.current);
