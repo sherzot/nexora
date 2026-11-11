@@ -60,5 +60,5 @@ export default function App() {
     case 'workspace': content = <WorkspaceOverview theme={theme} onTheme={setTheme} reducedMotion={reducedMotion} onMotion={setReducedMotion} onReset={reset} />; break;
     default: content = <section className="empty-state"><p className="eyebrow">UNKNOWN LOCAL ROUTE</p><h1 id="page-title" tabIndex={-1}>This room is not on the map</h1><p>No demo view matches this address.</p><a className="primary-link" href="#/office">Return to the office</a></section>;
   }
-  return <AppShell key={resetVersion} active={active} theme={theme} reducedMotion={reducedMotion}><SimulationControls /><div key={`${simulation.epoch}:${route.view}:${route.agentId ?? ''}:${route.taskId ?? ''}:${route.interactionId ?? ''}:${resetVersion}`} className="view-content">{content}</div></AppShell>;
+  return <AppShell key={resetVersion} active={active} theme={theme} reducedMotion={reducedMotion}><SimulationControls /><div key={`${route.view === 'office' ? 'office' : simulation.epoch}:${route.view}:${route.agentId ?? ''}:${route.taskId ?? ''}:${route.interactionId ?? ''}:${resetVersion}`} className="view-content">{content}</div></AppShell>;
 }

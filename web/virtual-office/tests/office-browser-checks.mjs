@@ -107,7 +107,7 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
     HTMLCanvasElement.prototype.getContext = function (kind, ...args) { return kind === 'webgl2' ? null : getContext.call(this, kind, ...args); };
   });
   await unsupported.goto(`${origin}/#/office`); await unsupported.waitForSelector('svg.office-scene');
-  assert((await unsupported.getByRole('status').textContent()).includes('unavailable'), 'Initialization failure must explain fallback');
+  assert((await unsupported.locator('.office-view-help[role=status]').textContent()).includes('unavailable'), 'Initialization failure must explain fallback');
   await unsupported.close();
   assert(external.length === 0 && errors.length === 0, 'No external requests or uncaught application errors');
   return { canvasAgents: 8, keyboardAgents: 8, mounted, remounted, released, appBaseline, routes: 6, mobile: 'PASS', unsupportedWebGL: 'PASS', external, errors };

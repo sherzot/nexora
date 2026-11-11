@@ -423,3 +423,45 @@ Run the projection regressions with
 `node --no-addons tests/collaboration.test.mjs`. The browser suite
 `tests/collaboration-browser.mjs` takes a Playwright page and the origin of a
 locally served guarded build.
+
+### Office hardening and performance checks
+
+`tests/office-hardening-browser.mjs` verifies renderer retention across playback
+resets, pointer burst coalescing, direct timeline links, analytics clock updates,
+keyboard focus and the SVG path at 320 and 390 CSS pixels.
+`tests/office-performance-browser.mjs` runs the same benchmark against any
+guarded build served on loopback. Pass a fresh foreground Playwright page and
+the local origin. Run each build in a fresh browser context.
+
+Measured the M5 baseline (`eec1ab4`) and M6 guarded build with Chromium
+156.0.8078.81 on macOS 27.2, Apple M2 (Mac14,7), 8 GB RAM, ANGLE Metal,
+1440 × 1000 CSS pixels. Three navigations per build, one first navigation
+followed by two repeat navigations. Each run sent 240 primary pointer events
+in one task, observed 3.5 seconds of 1× Normal Office Day playback, then
+sampled 500 ms each at idle and while paused after the pause render settled.
+
+| Metric | M5 | M6 |
+| --- | ---: | ---: |
+| Minified main JavaScript | 267,179 B | 267,740 B |
+| Minified lazy renderer | 545,650 B | 545,861 B |
+| Navigation load event, median | 10.9 ms | 9.6 ms |
+| Navigation to first WebGL draw, median | 33.3 ms | 24.3 ms |
+| Renderer response end to first draw, median | 15.4 ms | 6.5 ms |
+| Initial / steady WebGL draw calls per frame | 84 / 65 | 84 / 65 |
+| Pointer burst canvas bounds reads | 240 | 1 |
+| Pointer event dispatch time, median | 3.7 ms | 0.9 ms |
+| Active RAF callback CPU duration, median run p95 | 1.7 ms | 1.8 ms |
+| Active draw-to-draw RAF interval, median run p95 | 17.6 ms | 17.6 ms |
+| Idle / paused RAF callbacks per 500 ms | 0 / 0 | 0 / 0 |
+
+Initial navigation timings were variable (275.3 ms to first draw on M5 and
+258.6 ms on M6). Treat timing samples as local observations. The repeatable
+improvements are the bounds-read count and keeping the existing canvas through
+scenario changes and resets. The route departure check found no remaining
+canvas or pending RAF in all runs. Existing browser suites check listener,
+observer, canvas and object URL cleanup. Long-run heap and GPU memory were
+not measured. RAF CPU duration is not GPU render time.
+
+The renderer already uses named Three.js imports and a separate lazy entry
+point. It still needs Three.js WebGL rendering, lit materials and shadows.
+The build retains the 500 kB warning. No bundle-size reduction is claimed.

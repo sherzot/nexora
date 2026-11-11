@@ -184,6 +184,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     let collaborationSource: string | undefined, collaborationTarget: string | undefined;
     let hovered: string | undefined;
     let frameId = 0;
+    let hoverPoint: { x: number; y: number } | undefined;
     const updateHighlights = () => {
       for (const [id, halo] of highlights) {
         const participant = id === collaborationSource || id === collaborationTarget;
@@ -194,6 +195,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       }
     };
     const clearHover = () => {
+      hoverPoint = undefined;
       if (hovered) { hovered = undefined; onHover(undefined); updateHighlights(); }
       canvas.style.cursor = 'grab';
     };
@@ -201,6 +203,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     const render = (time: number) => {
       frameId = 0;
       if (life.disposed || document.hidden) return;
+      const animated = Boolean(transition || movement);
       if (transition) {
         const progress = (time - transition.start) / 480;
         orbit = transitionOrbit(transition.from, transition.to, progress);
@@ -214,10 +217,27 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       const horizontal = Math.cos(orbit.pitch) * orbit.distance;
       camera.position.set(orbit.x + Math.sin(orbit.yaw) * horizontal, Math.sin(orbit.pitch) * orbit.distance, orbit.z + Math.cos(orbit.yaw) * horizontal);
       camera.lookAt(orbit.x, 0, orbit.z); camera.updateMatrixWorld();
+      if (hoverPoint) {
+        const next = pick(hoverPoint.x, hoverPoint.y);
+        hoverPoint = undefined;
+        if (next !== hovered) {
+          hovered = next;
+          onHover(hovered);
+          canvas.style.cursor = hovered ? 'pointer' : 'grab';
+          updateHighlights();
+        } else if (!animated && !dirty) {
+          return;
+        }
+      }
+      dirty = false;
       try { renderer.render(scene, camera); } catch { transition = undefined; fail(); }
       if (transition || movement) invalidate();
     };
-    const invalidate = () => { if (!life.disposed && !frameId && !document.hidden) frameId = requestAnimationFrame(render); };
+    let dirty = true;
+    const scheduleFrame = () => {
+      if (!life.disposed && !frameId && !document.hidden) frameId = requestAnimationFrame(render);
+    };
+    const invalidate = () => { dirty = true; scheduleFrame(); };
     const moveTo = (target: OrbitState) => {
       release(); clearHover();
       transition = reduced ? undefined : { from: { ...orbit }, to: target, start: performance.now() };
@@ -240,11 +260,16 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     });
     life.own(() => observer.disconnect()); observer.observe(host);
     const raycaster = new Raycaster();
-    const pick = (event: PointerEvent) => {
+    const pointer = new Vector2();
+    const hits: ReturnType<Raycaster['intersectObjects']> = [];
+    const pick = (x: number, y: number) => {
       const rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height) return undefined;
-      raycaster.setFromCamera(new Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-      const id: unknown = raycaster.intersectObjects(pickables, false)[0]?.object.userData.agentId;
+      pointer.set((x - rect.left) / rect.width * 2 - 1, -(y - rect.top) / rect.height * 2 + 1);
+      raycaster.setFromCamera(pointer, camera);
+      hits.length = 0;
+      const id: unknown = raycaster.intersectObjects(pickables, false, hits)[0]?.object.userData.agentId;
+      hits.length = 0;
       return typeof id === 'string' && validIds.has(id) ? id : undefined;
     };
     let drag: { id: number; x: number; y: number; moved: number; pan: boolean } | undefined;
@@ -266,17 +291,16 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
         drag.moved += Math.abs(dx) + Math.abs(dy);
         orbit = navigate(orbit, dx, dy, drag.pan);
         drag.x = event.clientX; drag.y = event.clientY;
-      } else {
-        const next = pick(event);
-        if (next === hovered) return;
-        hovered = next; onHover(hovered); canvas.style.cursor = hovered ? 'pointer' : 'grab'; updateHighlights();
+        invalidate();
+      } else if (!drag && event.isPrimary) {
+        hoverPoint = { x: event.clientX, y: event.clientY };
+        scheduleFrame();
       }
-      invalidate();
     });
     listen(canvas, 'pointerup', (event) => {
       if (!drag || drag.id !== event.pointerId) return;
       const click = drag.moved < 5; release();
-      if (click) selectAgent(pick(event), validIds, onSelect);
+      if (click) selectAgent(pick(event.clientX, event.clientY), validIds, onSelect);
     });
     listen(canvas, 'pointercancel', release);
     listen(canvas, 'lostpointercapture', () => { drag = undefined; });
@@ -296,7 +320,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     const contextLost = (event: Event) => { event.preventDefault(); fail(); };
     canvas.addEventListener('webglcontextlost', contextLost);
     life.own(() => canvas.removeEventListener('webglcontextlost', contextLost));
-    const visibility = () => { release(); if (document.hidden && transition) { orbit = transition.to; transition = undefined; } if (document.hidden) { cancelAnimationFrame(frameId); frameId = 0; } else invalidate(); };
+    const visibility = () => { release(); if (document.hidden && transition) { orbit = transition.to; transition = undefined; } if (document.hidden) { clearHover(); cancelAnimationFrame(frameId); frameId = 0; } else invalidate(); };
     document.addEventListener('visibilitychange', visibility);
     life.own(() => document.removeEventListener('visibilitychange', visibility));
     updateHighlights(); invalidate();
@@ -324,7 +348,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
             }
             motionStart = performance.now(); motionDuration = 500 / speed; movement = targets.size > 0;
           }
-        } else if (!playing) { movement = false; targets.clear(); }
+        } else if (!playing && movement) { snapPositions(); changed = true; }
         else if (movement && lastSpeed !== speed) {
           for (const [id, target] of targets) { const position = avatars.get(id)!.position; target.fromX = position.x; target.fromZ = position.z; }
           motionStart = performance.now(); motionDuration = 500 / speed;
@@ -336,7 +360,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
         if (life.disposed || (collaborationSource === source && collaborationTarget === target)) return;
         collaborationSource = source; collaborationTarget = target; updateHighlights(); invalidate();
       },
-      setSelection(id) { if (life.disposed || !validIds.has(id)) return; selected = id; updateHighlights(); invalidate(); },
+      setSelection(id) { if (life.disposed || selected === id || !validIds.has(id)) return; selected = id; updateHighlights(); invalidate(); },
       zoomBy(delta) { if (life.disposed) return; cancelTransition(); orbit = zoom(orbit, delta); invalidate(); },
       focusAgent(id) {
         const point = avatars.get(id)?.position; if (life.disposed || !point) return;

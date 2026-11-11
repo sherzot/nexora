@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { DemoNotice } from './DemoNotice';
 
@@ -15,15 +15,21 @@ const navigation = [
 export function AppShell({ active, theme, reducedMotion, children }: {
   active: string; theme: 'light' | 'dark'; reducedMotion: boolean; children: ReactNode;
 }) {
+  const toggle = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   return <div className="app-shell" data-theme={theme} data-reduced-motion={reducedMotion ? 'true' : 'false'}>
     <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to workspace</a>
-    <aside className="sidebar">
+    <aside className="sidebar" onKeyDown={(event) => {
+      if (event.key === 'Escape' && menuOpen) {
+        setMenuOpen(false);
+        toggle.current?.focus();
+      }
+    }}>
       <a className="brand" href="#/office" aria-label="NEXORA demo office" onClick={() => setMenuOpen(false)}>
         <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M3 23V5h6l10 14V5h6v18h-6L9 9v14Z" fill="currentColor" /></svg>
         <span>NEXORA<span className="brand-caption">VIRTUAL OFFICE</span></span>
       </a>
-      <button className="menu-toggle" aria-controls="workspace-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>Navigation <span aria-hidden="true">{menuOpen ? '−' : '+'}</span></button>
+      <button ref={toggle} className="menu-toggle" aria-controls="workspace-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>Navigation <span aria-hidden="true">{menuOpen ? '−' : '+'}</span></button>
       <nav id="workspace-navigation" className={menuOpen ? 'navigation is-open' : 'navigation'} aria-label="Main navigation">
         <p className="nav-heading">WORKSPACE</p>
         {navigation.map((item) => <a key={item.key} href={item.href} aria-current={active === item.key ? 'page' : undefined} onClick={() => setMenuOpen(false)}><span className="nav-mark" aria-hidden="true">{item.mark}</span>{item.label}</a>)}

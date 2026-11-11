@@ -294,3 +294,16 @@ input[type="search"], select { min-height: 39px; padding: 9px 12px; border-radiu
 .interaction-details { overflow-wrap: anywhere; margin-top: 1rem; }
 .interaction-details .section-heading { flex-wrap: wrap; gap: .5rem; }
 @media (max-width: 850px) { .collaboration-layout { grid-template-columns: minmax(0, 1fr); } }
+
+.workflow-node:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.analytics-table-wrap:focus-visible { outline-offset: 0; }
+@media (max-width: 700px) {
+  .menu-toggle, .navigation a, .simulation-actions button, .office-view-controls button,
+  .filter-bar select, .filter-bar input, .filter-bar button { min-height: 44px; }
+  .simulation-controls, .office-view-controls, .filter-bar { min-width: 0; }
+  .filter-bar > label { min-width: min(130px, 100%); }
+  .filter-bar select { max-width: 100%; }
+  .workflow-node { overflow-wrap: anywhere; }
+  .analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-kpis strong { font-size: clamp(1rem, 5vw, 1.4rem); overflow-wrap: anywhere; }
+}
