@@ -8,8 +8,14 @@ export function createController(scheduler: Scheduler = browserScheduler) {
   let view: Playback = { snapshot: initialSnapshot(), mode: 'inactive', speed: 1, epoch: 0 };
   let timer: unknown;
   let generation = 0;
+  let disposed = false;
   const listeners = new Set<() => void>();
-  const publish = (value: Playback) => { view = value; for (const listener of [...listeners]) listener(); };
+  const publish = (value: Playback) => {
+    view = value;
+    for (const listener of [...listeners]) {
+      if (listeners.has(listener)) listener();
+    }
+  };
   const clear = () => { generation++; if (timer !== undefined) scheduler.cancel(timer); timer = undefined; };
   const schedule = () => {
     if (view.mode !== 'playing') return;
@@ -25,12 +31,12 @@ export function createController(scheduler: Scheduler = browserScheduler) {
   const pause = () => { clear(); if (view.mode === 'playing') publish({ ...view, mode: 'paused' }); };
   return {
     getSnapshot: () => view,
-    subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    start() { if (view.mode === 'playing' || view.mode === 'finished') return; clear(); const token = generation; publish({ ...view, snapshot: { ...view.snapshot, active: true }, mode: 'playing' }); if (token === generation) schedule(); },
+    subscribe(listener: () => void) { if (!disposed) listeners.add(listener); return () => { listeners.delete(listener); }; },
+    start() { if (disposed || view.mode === 'playing' || view.mode === 'finished') return; clear(); const token = generation; publish({ ...view, snapshot: { ...view.snapshot, active: true }, mode: 'playing' }); if (token === generation) schedule(); },
     pause,
-    step() { if (view.mode === 'playing' || view.mode === 'finished') return; clear(); const snapshot = stepSnapshot(view.snapshot); publish({ ...view, snapshot, mode: snapshot.tick === END_TICK ? 'finished' : 'paused' }); },
-    setSpeed(speed: number) { if (speed !== 1 && speed !== 2 && speed !== 4) throw new Error('Unsupported playback speed'); clear(); const token = generation; publish({ ...view, speed }); if (token === generation) schedule(); },
-    reset(scenario: ScenarioId = view.snapshot.scenario, seed = view.snapshot.seed) { const snapshot = initialSnapshot(scenario, seed); clear(); publish({ snapshot, mode: 'inactive', speed: view.speed, epoch: view.epoch + 1 }); },
-    dispose() { pause(); listeners.clear(); },
+    step() { if (disposed || view.mode === 'playing' || view.mode === 'finished') return; clear(); const snapshot = stepSnapshot(view.snapshot); publish({ ...view, snapshot, mode: snapshot.tick === END_TICK ? 'finished' : 'paused' }); },
+    setSpeed(speed: number) { if (disposed) return; if (speed !== 1 && speed !== 2 && speed !== 4) throw new Error('Unsupported playback speed'); clear(); const token = generation; publish({ ...view, speed }); if (token === generation) schedule(); },
+    reset(scenario: ScenarioId = view.snapshot.scenario, seed = view.snapshot.seed) { if (disposed) return; const snapshot = initialSnapshot(scenario, seed); clear(); publish({ snapshot, mode: 'inactive', speed: view.speed, epoch: view.epoch + 1 }); },
+    dispose() { if (disposed) return; disposed = true; listeners.clear(); pause(); },
   };
 }

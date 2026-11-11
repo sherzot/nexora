@@ -26,7 +26,7 @@ export default async function measureOffice(page, origin = 'http://127.0.0.1:419
     window.cancelAnimationFrame = (id) => { audit.pending.delete(id); cancel(id); };
   });
   const runs = [];
-  for (let run = 0; run < 3; run++) {
+  for (let run = 0; run < 4; run++) {
     await page.goto(origin + '/?benchmark=' + run + '#/office');
     await page.locator('.office-webgl canvas').waitFor();
     await page.waitForFunction(() => window.officePerformance.frames.some((frame) => frame.draws));
@@ -74,13 +74,31 @@ export default async function measureOffice(page, origin = 'http://127.0.0.1:419
       return {
         activeFrames: frames.length,
         activeCpuP95Ms: percentile(frames.map((frame) => frame.cpuMs), .95),
+        activeIntervalMedianMs: percentile(frames.slice(1).map((frame, index) => frame.time - frames[index].time), .5),
         activeIntervalP95Ms: percentile(frames.slice(1).map((frame, index) => frame.time - frames[index].time), .95),
         steadyDraws: percentile(frames.map((frame) => frame.draws), .5),
       };
     }, [start, stop]));
+    Object.assign(runs.at(-1), await page.evaluate(async () => {
+      const switchTimes = [];
+      let remounts = 0;
+      const select = document.querySelector('.simulation-controls select');
+      const canvas = document.querySelector('.office-webgl canvas');
+      const clock = document.querySelector('.simulation-controls time');
+      for (const scenario of ['review', 'collaboration', 'day']) {
+        const start = performance.now();
+        select.value = scenario;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        if (clock.textContent !== 'T+00:00.000' || select.value !== scenario) throw new Error('Scenario switch was not applied');
+        switchTimes.push(performance.now() - start);
+        if (document.querySelector('.office-webgl canvas') !== canvas) remounts++;
+      }
+      return { switchTimes, remounts };
+    }));
     await page.goto(origin + '/#/analytics');
     await page.getByRole('heading', { name: 'Simulation Analytics', exact: true }).waitFor();
     runs.at(-1).released = await page.evaluate(() => !document.querySelector('canvas') && window.officePerformance.pending.size === 0);
   }
-  return { browser: page.context().browser().version(), platform: await page.evaluate(() => navigator.platform), runs };
+  return { browser: page.context().browser().version(), platform: await page.evaluate(() => navigator.platform), warmup: runs[0], runs: runs.slice(1) };
 }

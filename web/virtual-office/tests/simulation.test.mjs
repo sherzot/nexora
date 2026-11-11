@@ -101,4 +101,41 @@ test('reentrant reset/start cannot create duplicate timers', () => {
   c.subscribe(() => { if (!replaced && c.getSnapshot().mode === 'playing') { replaced = true; c.reset(); c.start(); } });
   c.start(); assert.equal(scheduled.size, 1); c.dispose(); assert.equal(scheduled.size, 0);
 });
+test('dispose during notification invalidates callbacks and suppresses stale subscribers', () => {
+  const { controller: c, fire, retained, scheduled } = setup();
+  let afterDispose = 0;
+  c.subscribe(() => { if (c.getSnapshot().snapshot.tick === 1) c.dispose(); });
+  c.start();
+  c.subscribe(() => afterDispose++);
+  fire();
+  assert.equal(afterDispose, 0);
+  assert.equal(scheduled.size, 0);
+  const snapshot = c.getSnapshot();
+  retained[0]();
+  c.start(); c.step(); c.reset(); c.setSpeed(4);
+  assert.equal(c.getSnapshot(), snapshot);
+  assert.equal(scheduled.size, 0);
+});
+test('90 mixed playback replays keep timers and history bounded', () => {
+  const { controller: c, fire, retained, scheduled } = setup();
+  const scenarios = ['day', 'collaboration', 'review'];
+  for (let run = 0; run < 90; run++) {
+    const scenario = scenarios[run % scenarios.length], seed = run % 5;
+    c.reset(scenario, seed);
+    for (let tick = 0; tick < END_TICK; tick++) {
+      c.start(); c.setSpeed([1, 2, 4][tick % 3]);
+      assert.equal(scheduled.size, 1);
+      if (tick % 2 === 0) {
+        const stale = retained.at(-1);
+        c.pause(); stale(); assert.equal(c.getSnapshot().snapshot.tick, tick);
+        c.step();
+      } else fire();
+      assert.ok(scheduled.size <= 1);
+      assert.ok(c.getSnapshot().snapshot.events.length <= HISTORY_LIMIT);
+    }
+    assert.deepEqual(plain(c.getSnapshot().snapshot), plain(replay(scenario, seed)));
+    assert.equal(scheduled.size, 0);
+  }
+  c.dispose();
+});
 console.log(`PASS: ${count} deterministic simulation/controller regressions.`);
