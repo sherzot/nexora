@@ -7,7 +7,7 @@ function Plant({ x, y }: { x: number; y: number }) {
   return <g aria-hidden="true" className="office-plant"><ellipse cx={px} cy={py + 1} rx="15" ry="7" className="scene-shadow" /><path d={`M${px - 10},${py - 20}h20l-3,20h-14Z`} fill="var(--plant-pot)" /><ellipse cx={px} cy={py - 20} rx="10" ry="4" fill="var(--plant-pot-top)" /><path d={`M${px},${py - 20}v-35m0,20q-25,-25 -15,-30q22,8 15,30m0,-5q28,-25 20,-32q-24,5 -20,32`} fill="var(--plant-leaf)" stroke="var(--plant-stem)" strokeWidth="2" /></g>;
 }
 
-export function OfficeScene({ selectedId, onSelect, simulation }: { selectedId: string; onSelect: (id: string) => void; simulation?: Snapshot }) {
+export function OfficeScene({ selectedId, onSelect, simulation, source, target }: { selectedId: string; onSelect: (id: string) => void; simulation?: Snapshot; source?: string; target?: string }) {
   return <svg className="office-scene" viewBox="0 0 930 570" role="group" aria-label="Synthetic isometric office. Select an agent here or use the equivalent list below.">
     <defs><pattern id="office-dot-grid" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="var(--scene-dot)" /></pattern></defs>
     <g aria-hidden="true">
@@ -35,6 +35,7 @@ export function OfficeScene({ selectedId, onSelect, simulation }: { selectedId: 
         <g aria-hidden="true"><polygon points={floorPoints(x - 0.1, y - 0.1, 1.45, 1.05)} className="desk-shadow" /><polygon points={desk.left} fill="var(--desk-left)" /><polygon points={desk.right} fill="var(--desk-right)" /><polygon points={desk.top} fill="var(--desk-top)" stroke="var(--desk-outline)" /><path d={`M${mx - 13},${my - 11}l23,11v15l-23,-11Z`} fill="var(--monitor)" stroke="var(--monitor-edge)" strokeWidth="2" /><path d={`M${mx - 8},${my - 5}l13,6`} stroke="var(--monitor-line)" strokeWidth="2" /><ellipse cx={ax} cy={ay + 52} rx="15" ry="7" fill="var(--chair)" /></g>
         <g role="button" tabIndex={0} aria-label={`Select ${agent.name}, ${agent.role}, ${activity}, synthetic agent`} aria-pressed={selected} className={selected ? 'scene-marker is-selected' : 'scene-marker'} onClick={() => onSelect(agent.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(agent.id); } }}>
           <title>{agent.name} · {agent.role} · {agent.status} — demo</title>
+          {(agent.id === source || agent.id === target) && <circle cx={ax} cy={ay} r="28" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray="4 2" aria-hidden="true" data-collaboration-agent={agent.id} />}
           <circle cx={ax} cy={ay} r="24" className="marker-halo" /><circle cx={ax} cy={ay} r="18" className="marker-body" />
           <text x={ax} y={ay + 4} textAnchor="middle" className="marker-initials" aria-hidden="true">{agent.initials}</text>
           <circle cx={ax + 14} cy={ay + 14} r="5" className="scene-status" data-status={activity} aria-hidden="true" />

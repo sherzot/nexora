@@ -405,3 +405,21 @@ The M3 renderer asset is unchanged. Analytics uses lightweight SVG/CSS, memoized
 bounded derivations and local comparisons of at most 3×32 ticks. No chart library,
 renderer animation loop, external observability service, telemetry ingestion,
 operational capability, dependency, native permission or deployment is introduced.
+
+### Synthetic collaboration
+
+Open **Collaboration** to follow the selected scenario's fixture tasks and agent
+relationships. Planned steps have no event timestamp. Observed steps point to the
+simulation activity that supports them, with the current step highlighted until
+the next step is observed. Review outcomes are labeled **Demo Approval** and
+grant no authority. Single-agent tasks use a fixture peer for illustration.
+
+Select an interaction to inspect its causal predecessor, jump to the relevant
+timeline entry, or highlight both participants in the Office. The timeline has
+a separate collaboration stream. Analytics continue to use simulation activity
+and retain their existing metric definitions.
+
+Run the projection regressions with
+`node --no-addons tests/collaboration.test.mjs`. The browser suite
+`tests/collaboration-browser.mjs` takes a Playwright page and the origin of a
+locally served guarded build.

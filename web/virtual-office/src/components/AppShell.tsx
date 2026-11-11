@@ -8,6 +8,7 @@ const navigation = [
   { key: 'tasks', href: '#/tasks', label: 'Task Board', mark: '03' },
   { key: 'activity', href: '#/activity', label: 'Activity Timeline', mark: '04' },
   { key: 'workspace', href: '#/workspace', label: 'Workspace', mark: '05' },
+  { key: 'collaboration', href: '#/collaboration', label: 'Collaboration', mark: '07' },
   { key: 'analytics', href: '#/analytics', label: 'Simulation Analytics', mark: '06' },
 ];
 
