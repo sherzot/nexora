@@ -465,3 +465,64 @@ not measured. RAF CPU duration is not GPU render time.
 The renderer already uses named Three.js imports and a separate lazy entry
 point. It still needs Three.js WebGL rendering, lit materials and shadows.
 The build retains the 500 kB warning. No bundle-size reduction is claimed.
+
+### M7 reliability verification
+
+`node --no-addons tests/simulation.test.mjs` includes 90 complete replays
+across three scenarios and five seeds. The manual scheduler tests speed
+changes, stale callbacks, pause/step/resume and disposal during notification.
+Each replay must match the direct simulation engine, with at most one pending
+timer and no more than 128 events.
+
+Run `tests/office-reliability-browser.mjs` with a fresh foreground Playwright
+page, downloads enabled, and a locally served guarded build. It cycles through
+Office, Timeline, Collaboration and Analytics six times, compares replayed
+event identities, checks selection and exports, and injects a draw failure
+during playback. It asserts same-frame teardown and focus restoration to the
+2D control. Diagnostics live in the test page only.
+
+In Chromium 156.0.8078.81 on macOS 27.2 (Apple M2, 8 GB, ANGLE Metal),
+the suite observed 13 WebGL contexts and 13 context-loss events, including
+the injected failure. Each completed cycle returned to zero canvases,
+observers, pending frames and report object URLs, with one application
+visibility listener. The final sample counted 208 buffer creates and deletes,
+208 vertex-array creates and deletes, 76 texture creates / 16 explicit deletes,
+40 program creates / 24 explicit deletes and 47 framebuffer creates / 8
+explicit deletes. These are WebGL API calls. Context loss invalidates the
+remaining handles. Individual Three.js geometry/material allocations and
+GPU memory bytes were not measured. Chromium's sampled JS heap ranged from
+about 10.0 to 15.1 MB after cycles and was 11.3 MB after failure. These
+short, garbage-collection-dependent samples do not establish a long-run
+memory trend.
+
+The installed Playwright tooling exposed Chromium. Firefox and Playwright
+WebKit binaries were unavailable. Safari 27.2 WebDriver refused a session
+because remote automation was disabled. Firefox and WebKit remain untested.
+
+For the M7 benchmark, use the same harness on guarded builds from
+`032e85c` (M6 baseline) and M7. Use a fresh context per build and a 1440 × 1000
+viewport, seed 42 and 1× Normal Office Day. Exclude the first navigation as
+warm-up and summarize the next three. Each run samples 3.5 seconds of active
+playback and 500 ms each at idle and settled pause. Scenario switch timing
+includes two RAF callbacks after dispatch, so it is a paint-opportunity proxy
+rather than pure controller execution time.
+
+| Metric | M6 baseline | M7 |
+| --- | ---: | ---: |
+| Minified main JavaScript | 267,740 B | 267,873 B |
+| Minified lazy renderer | 545,861 B | 546,037 B |
+| Navigation load event, median | 8.0 ms | 9.7 ms |
+| Navigation to first draw, median | 19.0 ms | 21.5 ms |
+| 240-event pointer dispatch, median | 0.9 ms | 1.0 ms |
+| Canvas bounds reads per burst | 1 | 1 |
+| Active frame interval, median / median run p95 | 16.7 / 17.5 ms | 16.7 / 17.7 ms |
+| Scenario switch, median / p95 across nine switches | 33.2 / 34.1 ms | 33.1 / 34.7 ms |
+| Scenario switch renderer remounts | 0 / 9 | 0 / 9 |
+| Initial / steady draw calls per frame | 84 / 65 | 84 / 65 |
+| Idle / paused RAF callbacks per 500 ms | 0 / 0 | 0 / 0 |
+
+Timing samples are diagnostic only. The emitted lazy chunk contains the
+Three.js WebGL renderer, lit-material and shadow code. The lockfile has one
+runtime Three.js version and the source uses named imports through its
+approved entry point. No safe reduction below 500 kB was demonstrated.
+The existing warning remains enabled.

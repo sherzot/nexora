@@ -9,6 +9,7 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
   const { view, interaction } = useSimulation();
   const simulation = view.snapshot.active ? view.snapshot : undefined;
   const host = useRef<HTMLDivElement>(null);
+  const fallbackButton = useRef<HTMLButtonElement>(null);
   const renderer = useRef<OfficeRenderer | null>(null);
   const selection = useRef(selectedId);
   selection.current = selectedId;
@@ -38,7 +39,12 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
     let instance: OfficeRenderer | undefined;
     import('./three/renderer').then(({ createOfficeRenderer }) => {
       if (cancelled || !host.current) return;
-      instance = createOfficeRenderer(host.current, agents, rooms, selection.current, dark, (id) => callback.current(id), (reason) => { if (!cancelled) { setFailure(reason); setTwoD(true); } }, (id) => { if (!cancelled) setHoveredId(id); }, motion.current);
+      instance = createOfficeRenderer(host.current, agents, rooms, selection.current, dark, (id) => callback.current(id), (reason, canvasHadFocus) => {
+        if (cancelled) return;
+        setFailure(reason);
+        setTwoD(true);
+        if (canvasHadFocus) fallbackButton.current?.focus({ preventScroll: true });
+      }, (id) => { if (!cancelled) setHoveredId(id); }, motion.current);
       renderer.current = instance;
       setReady(true);
     }).catch((error: unknown) => {
@@ -66,7 +72,7 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
   return <>
     <div className="office-view-controls" role="group" aria-label="Office view">
       <button type="button" aria-pressed={!twoD} onClick={() => { setFailure(''); setTwoD(false); }}>3D office</button>
-      <button type="button" aria-pressed={twoD} onClick={() => setTwoD(true)}>2D floor plan</button>
+      <button ref={fallbackButton} type="button" aria-pressed={twoD} onClick={() => setTwoD(true)}>2D floor plan</button>
       {!twoD && <>
         <button type="button" disabled={!ready} onClick={() => { renderer.current?.reset(); setZoneId(undefined); }}>Reset camera</button>
         <button type="button" disabled={!ready || !selected} onClick={() => { renderer.current?.focusAgent(selectedId); setZoneId(undefined); }}>Focus {selected?.name ?? 'agent'}</button>

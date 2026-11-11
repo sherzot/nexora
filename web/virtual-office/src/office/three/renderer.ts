@@ -15,11 +15,12 @@ export interface OfficeRenderer {
   reset(): void;
   dispose(): void;
 }
-export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAgent[], rooms: readonly DemoRoom[], selectedId: string, dark: boolean, onSelect: (id: string) => void, onUnavailable: (reason: string) => void, onHover: (id: string | undefined) => void = () => {}, reducedMotion = false): OfficeRenderer {
+export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAgent[], rooms: readonly DemoRoom[], selectedId: string, dark: boolean, onSelect: (id: string) => void, onUnavailable: (reason: string, canvasHadFocus: boolean) => void, onHover: (id: string | undefined) => void = () => {}, reducedMotion = false): OfficeRenderer {
   const life = createLifetime();
   try {
     const renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' });
-    life.own(() => { renderer.dispose(); renderer.forceContextLoss(); });
+    life.own(() => renderer.forceContextLoss());
+    life.own(() => renderer.dispose());
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
@@ -199,7 +200,13 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       if (hovered) { hovered = undefined; onHover(undefined); updateHighlights(); }
       canvas.style.cursor = 'grab';
     };
-    const fail = () => { if (!life.disposed) onUnavailable('3D view unavailable. The 2D office remains fully usable.'); };
+    const fail = () => {
+      if (life.disposed) return;
+      const canvasHadFocus = document.activeElement === canvas;
+      try { life.dispose(); }
+      catch (error) { console.error('Office cleanup failed', error); }
+      onUnavailable('3D view unavailable. The 2D office remains fully usable.', canvasHadFocus);
+    };
     const render = (time: number) => {
       frameId = 0;
       if (life.disposed || document.hidden) return;
@@ -230,7 +237,8 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
         }
       }
       dirty = false;
-      try { renderer.render(scene, camera); } catch { transition = undefined; fail(); }
+      try { renderer.render(scene, camera); }
+      catch (error) { console.warn('Office rendering failed', error); fail(); return; }
       if (transition || movement) invalidate();
     };
     let dirty = true;
@@ -245,7 +253,14 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       invalidate();
     };
     const cancelTransition = () => { transition = undefined; overview = false; clearHover(); };
-    life.own(() => { transition = undefined; movement = false; targets.clear(); cancelAnimationFrame(frameId); });
+    life.own(() => {
+      transition = undefined;
+      movement = false;
+      hoverPoint = undefined;
+      targets.clear();
+      cancelAnimationFrame(frameId);
+      frameId = 0;
+    });
     const listen = <K extends keyof HTMLElementEventMap>(target: HTMLElement, event: K, fn: (e: HTMLElementEventMap[K]) => void, options?: AddEventListenerOptions) => {
       target.addEventListener(event, fn, options); life.own(() => target.removeEventListener(event, fn, options));
     };
