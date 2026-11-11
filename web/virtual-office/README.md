@@ -526,3 +526,91 @@ Three.js WebGL renderer, lit-material and shadow code. The lockfile has one
 runtime Three.js version and the source uses named imports through its
 approved entry point. No safe reduction below 500 kB was demonstrated.
 The existing warning remains enabled.
+
+### M8 browser and soak checks
+
+Use a separately provisioned Playwright runtime and its approved local browser
+binaries. The test launcher uses an explicit absolute module path and a loopback
+origin. Serve the guarded build's `dist` directory on that origin, then run
+from `web/virtual-office`:
+
+```sh
+export NEXORA_PLAYWRIGHT_MODULE=/absolute/path/to/playwright-core/index.mjs
+node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 all
+node tests/run-office-browser.mjs firefox http://127.0.0.1:4204 all
+node tests/run-office-browser.mjs webkit http://127.0.0.1:4204 all
+node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 smoke
+```
+
+The M2 screenshot suite uses Chromium's DevTools Protocol. The launcher
+explicitly skips that suite on Firefox and WebKit and runs the shared browser
+checks there. A missing engine executable blocks that engine's run. The
+launcher leaves provisioning to the approved tooling outside this repository.
+
+The stress modes are `smoke` (5 minutes), `validation` (30 minutes), and
+`extended` (60 minutes). Each mode finishes its current cycle at the time
+limit, then exercises an injected draw failure and checks teardown. A cycle
+uses seed 42, rotates through the three scenarios, and finishes playback at
+4× speed. It revisits the Office, Timeline, Collaboration and Analytics,
+compares replay identities, and checks export URLs and renderer teardown.
+`regression` runs six short cycles. `resize` runs the focused duplicate
+resize regression. `benchmark` runs one warm-up and three measured runs.
+
+The stress harness retains up to 32 cycle snapshots and a fixed histogram of
+positive RAF intervals up to 100 ms. The histogram excludes longer idle gaps.
+Browser timer counts are a test-side proxy keyed to the simulation's
+125/250/500 ms delays. The controller tests independently check its exact
+scheduler behavior. Counts of WebGL API calls and context-loss events describe
+resource lifecycle, not GPU memory bytes. Optional Chromium heap samples are
+garbage-collection-dependent, and a smoke run cannot establish a long-run trend.
+
+Chromium 153.0.8010.12 on macOS 27.2 / Apple M2 completed 66 smoke cycles
+in 302.739 seconds at 1440 × 1000. It observed 133 WebGL contexts and
+133 context-loss events. After the injected failure, the counters returned
+to zero canvases, observers, RAF callbacks, playback timers and export URLs,
+and one application visibility listener. The timer proxy peaked at one.
+Buffers and vertex arrays each showed 1,742 creates and 1,742 explicit
+deletes. Textures showed 733 creates / 134 explicit deletes, programs
+335 / 201, and framebuffers 466 / 67. All contexts were lost at teardown.
+The retained 32 Chromium heap samples returned the same coarse 10 MB
+reading. The 12,411 sampled RAF intervals had a median of 17 ms and p95
+of 33 ms, including stress navigation and playback.
+
+All eight Chromium suites passed. The duplicate-resize test recorded 120
+canvas dimension writes on M7 and zero on M8 for 30 repeated notifications.
+Real resize and SVG fallback passed on M8. The remount test initially failed its resource comparison with a fixed
+100 ms delay under headless Chromium. It passed after switching to a wait
+for renderer readiness and an empty frame queue.
+
+Firefox revision 1543 and WebKit revision 2359 were absent from the
+configured Playwright cache, so their launches were blocked. The 30- and
+60-minute modes were not run. JS geometry/material counts, precise heap
+trends, and GPU memory bytes remain unverified.
+
+Paired M7/M8 benchmarks used Chromium 153.0.8010.12 with ANGLE SwiftShader
+on macOS 27.2 (Apple M2), 1440 × 1000, seed 42, and 1× Normal Office Day.
+Each build used a fresh context, one warm-up and three measured runs.
+The local static server sent uncompressed assets. Gzip and Brotli totals
+are offline Node zlib defaults across the two JavaScript files.
+
+| Metric | M7 | M8 |
+| --- | ---: | ---: |
+| Main JS, minified | 267,873 B | 267,873 B |
+| Lazy renderer, minified | 546,037 B | 546,137 B |
+| Cold JavaScript transfer, browser Resource Timing | 814,510 B | 814,610 B |
+| Combined gzip / Brotli JS | 216,973 / 181,059 B | 217,033 / 181,173 B |
+| Median navigation to first draw | 29.7 ms | 23.7 ms |
+| Median pointer burst dispatch | 1.1 ms | 1.0 ms |
+| Active RAF interval, median / median run p95 | 16.7 / 33.4 ms | 16.7 / 33.4 ms |
+| Scenario switch, median / p95 | 32.2 / 42.9 ms | 33.3 / 38.6 ms |
+| Initial / steady draw calls | 84 / 65 | 84 / 65 |
+| Idle / settled-pause RAF callbacks per 500 ms | 0 / 0 | 0 / 0 |
+| Remounts across nine scenario switches | 0 | 0 |
+
+Warm navigations reused cached JS. Timings vary across runs and do not
+establish a speedup. The import audit found one Three.js runtime version.
+Named imports use the approved root entry point, and the main chunk
+contains no WebGL renderer markers. The lazy chunk retains the WebGL
+renderer, standard lit materials and shadow code. No WebGPU or audited
+decoder markers appeared in either chunk. The 500 kB threshold remains
+in effect. No safe bundle reduction was demonstrated.

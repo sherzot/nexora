@@ -81,9 +81,10 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
     assert(await canvas.count() === 0, '2D must unmount the GPU canvas');
     await page.getByRole('button', { name: '3D office' }).click(); await page.waitForSelector('canvas');
   }
-  await page.waitForTimeout(100);
+  await page.locator('.office-webgl[aria-busy=false]').waitFor();
+  await page.waitForFunction(() => window.__officeAudit.frames.size === 0);
   const remounted = await metrics();
-  assert(JSON.stringify(mounted) === JSON.stringify(remounted), 'Remount must not accumulate resources/listeners');
+  assert(JSON.stringify(mounted) === JSON.stringify(remounted), `Remount must not accumulate resources/listeners: ${JSON.stringify({ mounted, remounted })}`);
   await canvas.evaluate((element) => element.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await page.waitForSelector('svg.office-scene'); await page.waitForTimeout(100);
   const released = await metrics();
