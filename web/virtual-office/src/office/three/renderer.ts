@@ -6,6 +6,7 @@ import { createLifetime, focusPoint, initialOrbit, navigate, overviewForAspect, 
 
 export interface OfficeRenderer {
   setSimulation(snapshot: Snapshot | undefined, playing: boolean, speed: number): void;
+  setCollaboration(source?: string, target?: string): void;
   setSelection(id: string): void;
   zoomBy(delta: number): void;
   focusAgent(id: string): void;
@@ -180,12 +181,14 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       }
       movement = false; targets.clear();
     };
+    let collaborationSource: string | undefined, collaborationTarget: string | undefined;
     let hovered: string | undefined;
     let frameId = 0;
     const updateHighlights = () => {
       for (const [id, halo] of highlights) {
-        halo.visible = id === selected || id === hovered;
-        halo.material = id === selected ? selection : hoverMat;
+        const participant = id === collaborationSource || id === collaborationTarget;
+        halo.visible = id === selected || id === hovered || participant;
+        halo.material = id === selected ? selection : participant ? statusMats.Reviewing : hoverMat;
         const scale = id === selected ? 1.2 : 1;
         halo.scale.setScalar(scale);
       }
@@ -328,6 +331,10 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
         }
         lastSpeed = speed;
         if (changed || movement) invalidate();
+      },
+      setCollaboration(source, target) {
+        if (life.disposed || (collaborationSource === source && collaborationTarget === target)) return;
+        collaborationSource = source; collaborationTarget = target; updateHighlights(); invalidate();
       },
       setSelection(id) { if (life.disposed || !validIds.has(id)) return; selected = id; updateHighlights(); invalidate(); },
       zoomBy(delta) { if (life.disposed) return; cancelTransition(); orbit = zoom(orbit, delta); invalidate(); },

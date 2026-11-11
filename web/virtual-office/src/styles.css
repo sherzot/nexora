@@ -277,3 +277,20 @@ input[type="search"], select { min-height: 39px; padding: 9px 12px; border-radiu
 .analytics-comparison { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; }.analytics-comparison article { border-top: 2px solid var(--accent); padding-top: 12px; }.analytics-comparison dl { font-size: 11px; line-height: 2; }.analytics-comparison dd { margin: 0; font-variant-numeric: tabular-nums; }.analytics-definitions { border-top: 1px solid var(--line); padding-top: 20px; font-size: 12px; line-height: 1.8; }.analytics-definitions dt { font-weight: 600; }.analytics-definitions dd { margin: 0 0 12px; color: var(--text-muted); }.analytics-event-id { overflow-wrap: anywhere; }.filter-bar input[type="number"] { max-width: 120px; padding: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 5px; }
 @media(max-width:900px) { .analytics-charts { gap: 20px; }.analytics-comparison { grid-template-columns: 1fr; }.analytics-kpis strong { font-size: 18px; } }
 @media(max-width:700px) { .analytics-kpis { grid-template-columns: 1fr 1fr; }.analytics-kpis article { padding: 12px; }.analytics-kpis strong { font-size: 17px; overflow-wrap: anywhere; }.analytics-charts { grid-template-columns: 1fr; }.section-heading:has(#comparison-title) { flex-wrap: wrap; }.analytics-table { min-width: 600px; }.analytics-tasks li { align-items: start; }.analytics-tasks strong { white-space: nowrap; } }
+
+.collaboration-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.collaboration-graph { min-width: 0; }
+.collaboration-flow { border-top: 1px solid currentColor; padding: 1rem 0; }
+.collaboration-flow h2 { margin: 0; font-size: 1.2em; }
+.collaboration-flow > p { margin: .3em 0 .8em; font-size: .95em; }
+.collaboration-flow ol { list-style: none; padding: 0; margin: 0; }
+.workflow-edge { display: block; width: 1em; height: 1.25em; margin-left: 1em; }
+.workflow-node { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25em .75em; width: 100%; padding: .65em .9em; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .4em; }
+.workflow-node[data-status="pending"] { border-style: dashed; }
+.workflow-node[data-status="active"] { border-inline-start-width: .35em; }
+.workflow-node[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.workflow-node > span:first-of-type { grid-row: 2; }
+.workflow-status { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-transform: capitalize; font-size: .85em; }
+.interaction-details { overflow-wrap: anywhere; margin-top: 1rem; }
+.interaction-details .section-heading { flex-wrap: wrap; gap: .5rem; }
+@media (max-width: 850px) { .collaboration-layout { grid-template-columns: minmax(0, 1fr); } }

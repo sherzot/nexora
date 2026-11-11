@@ -1,3 +1,4 @@
+import { InteractionInspector } from '../collaboration/InteractionInspector';
 import { useSimulation } from '../simulation/SimulationProvider';
 import { eventsForAgent, virtualTime } from '../simulation/selectors';
 import { agents, rooms } from '../demo/fixtures';
@@ -19,6 +20,7 @@ export function OfficeOverview({ dark = false, reducedMotion = false }: { dark?:
       <aside className="agent-inspector" aria-label="Selected synthetic agent" aria-live="polite">
         <p className="eyebrow">IN FOCUS</p>
         {selected ? <><AgentAvatar agent={selected} large /><h2>{selected.name}</h2><p className="inspector-role">{selected.role}</p>{simulated ? <span className="simulation-tag">Synthetic · {simulated.activity}</span> : <StatusLabel status={selected.status} />}<dl className="detail-facts"><div><dt>Room</dt><dd>{findRoom(simulated?.zoneId ?? selected.roomId)?.name ?? 'Unknown demo room'}</dd></div><div><dt>Specialty</dt><dd>{selected.specialty}</dd></div><div><dt>Demo tasks</dt><dd>{tasksForAgent(selected.id).length} linked examples</dd></div></dl><a className="primary-link" href={agentHref(selected.id)}>View agent details <span aria-hidden="true">↗</span></a><ul className="simulation-related" aria-label="Selected agent simulation activity">{related.map((event) => <li key={event.id}>{virtualTime(event.virtualMs)} · {event.activity}</li>)}</ul><p className="inspector-note">This is a synthetic profile. Selecting it does not assign work or initiate an operation.</p></> : <p className="empty-state">Select an agent from the scene or list.</p>}
+        <InteractionInspector />
       </aside>
     </div>
     <section className="agent-strip-section" aria-labelledby="office-list-title"><div className="section-heading"><h2 id="office-list-title">Around the office</h2><a href="#/agents">Browse directory <span aria-hidden="true">→</span></a></div><p className="section-description">Equivalent agent selection, without the floor plan.</p><ul className="agent-strip">{agents.map((agent) => <li key={agent.id}><button className={selectedId === agent.id ? 'agent-select is-selected' : 'agent-select'} aria-pressed={selectedId === agent.id} onClick={() => setSelectedId(agent.id)}><AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><span>{agent.role}</span></span><span className="selection-indicator" aria-hidden="true">↗</span></button></li>)}</ul></section>
