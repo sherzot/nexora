@@ -42,21 +42,44 @@ async function run(browser) {
       : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];
     const identity = { engine, version: browser.version(), registeredExecutable, executableOverride: override,
       platform: process.platform, architecture: process.arch };
+    const fail = (phase, error, suite) => {
+      process.exitCode = 1;
+      console.log(JSON.stringify({ ...identity, suite, status: 'FAIL', phase, error: error?.stack ?? String(error) }));
+    };
     for (const suite of suites) {
-      const context = await browser.newContext({ acceptDownloads: true });
+      let context;
+      let phase = 'setup';
+      let result;
+      let failed = false;
       try {
+        context = await browser.newContext({ acceptDownloads: true });
         const page = await context.newPage();
         await page.bringToFront();
-        console.log(JSON.stringify({ ...identity, suite: suite.name, status: 'PASS',
-          result: await suite(page, origin, mode === 'all' ? 'regression' : mode) }));
+        phase = 'suite';
+        result = await suite(page, origin, mode === 'all' ? 'regression' : mode);
       } catch (error) {
-        console.log(JSON.stringify({ ...identity, suite: suite.name, status: 'FAIL', error: error.stack ?? String(error) }));
-        process.exitCode = 1;
+        failed = true;
+        fail(phase, error, suite.name);
       } finally {
-        await context.close();
+        try {
+          await context?.close();
+        } catch (error) {
+          failed = true;
+          fail('context-close', error, suite.name);
+        }
       }
+      if (!browser.isConnected()) {
+        fail('browser-disconnect', new Error('Browser disconnected before the run completed'), suite.name);
+        break;
+      }
+      if (!failed) console.log(JSON.stringify({ ...identity, suite: suite.name, status: 'PASS', result }));
     }
   } finally {
-    await browser.close();
+    try {
+      await browser.close();
+    } catch (error) {
+      process.exitCode = 1;
+      console.log(JSON.stringify({ engine, status: 'FAIL', phase: 'browser-close', error: error?.stack ?? String(error) }));
+    }
   }
 }
