@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import reliability from './office-reliability-browser.mjs';
 import benchmark from './office-performance-browser.mjs';
@@ -16,26 +17,46 @@ if (!['chromium', 'firefox', 'webkit'].includes(engine) || !/^http:\/\/127\.0\.0
 }
 const playwright = await import(pathToFileURL(runtime).href);
 const launcher = playwright[engine] ?? playwright.default?.[engine];
-const browser = await launcher.launch();
+const registeredExecutable = launcher.executablePath();
+const override = process.env.NEXORA_BROWSER_EXECUTABLE;
+if (override && (!override.startsWith('/') || !existsSync(override))) {
+  throw new Error('NEXORA_BROWSER_EXECUTABLE must be an existing absolute path');
+}
+let browser;
 try {
-  // The pixel comparison in M2 uses Chromium's DevTools Protocol.
-  const cameraSuites = engine === 'chromium' ? [experience] : [];
-  if (mode === 'all' && !cameraSuites.length) {
-    console.log(JSON.stringify({ engine, suite: experience.name, status: 'SKIPPED', reason: 'Requires Chromium CDP screenshots' }));
-  }
-  const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize]
-    : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];
-  for (const suite of suites) {
-    const context = await browser.newContext({ acceptDownloads: true });
-    try {
-      const page = await context.newPage();
-      await page.bringToFront();
-      console.log(JSON.stringify({ engine, version: browser.version(), suite: suite.name,
-        result: await suite(page, origin, mode === 'all' ? 'regression' : mode) }));
-    } finally {
-      await context.close();
+  browser = await launcher.launch(override ? { executablePath: override } : {});
+} catch (error) {
+  console.log(JSON.stringify({ engine, registeredExecutable, executableOverride: override, status: 'BLOCKED', phase: 'launch', error: error.message }));
+  process.exitCode = 1;
+}
+if (browser) await run(browser);
+
+async function run(browser) {
+  try {
+    // The pixel comparison in M2 uses Chromium's DevTools Protocol.
+    const cameraSuites = engine === 'chromium' ? [experience] : [];
+    if (mode === 'all' && !cameraSuites.length) {
+      console.log(JSON.stringify({ engine, suite: experience.name, status: 'NOT RUN', reason: 'Requires Chromium CDP screenshots' }));
     }
+    const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize]
+      : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];
+    const identity = { engine, version: browser.version(), registeredExecutable, executableOverride: override,
+      platform: process.platform, architecture: process.arch };
+    for (const suite of suites) {
+      const context = await browser.newContext({ acceptDownloads: true });
+      try {
+        const page = await context.newPage();
+        await page.bringToFront();
+        console.log(JSON.stringify({ ...identity, suite: suite.name, status: 'PASS',
+          result: await suite(page, origin, mode === 'all' ? 'regression' : mode) }));
+      } catch (error) {
+        console.log(JSON.stringify({ ...identity, suite: suite.name, status: 'FAIL', error: error.stack ?? String(error) }));
+        process.exitCode = 1;
+      } finally {
+        await context.close();
+      }
+    }
+  } finally {
+    await browser.close();
   }
-} finally {
-  await browser.close();
 }

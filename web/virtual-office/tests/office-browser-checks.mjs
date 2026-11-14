@@ -71,8 +71,22 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
     frames: window.__officeAudit.frames.size,
     listeners: [...window.__officeAudit.listeners.values()].reduce((sum, events) => sum + [...events.values()].reduce((n, set) => n + set.size, 0), 0),
   }));
-  await page.waitForFunction(() => window.__officeAudit.frames.size === 0);
-  const mounted = await metrics();
+  const settledMetrics = async () => {
+    // Wait and capture in the same browser turn. A second protocol round trip
+    // can race with a deferred resize delivery on a busy browser.
+    const handle = await page.waitForFunction(() => {
+      const audit = window.__officeAudit;
+      if (audit.frames.size) return false;
+      return {
+        canvas: document.querySelectorAll('canvas').length, observers: audit.observers.size,
+        frames: audit.frames.size,
+        listeners: [...audit.listeners.values()].reduce((sum, events) => sum + [...events.values()].reduce((n, set) => n + set.size, 0), 0),
+      };
+    });
+    try { return await handle.jsonValue(); }
+    finally { await handle.dispose(); }
+  };
+  const mounted = await settledMetrics();
   await page.getByRole('button', { name: '2D floor plan' }).click();
   const appBaseline = await metrics();
   await page.getByRole('button', { name: '3D office' }).click(); await page.waitForSelector('canvas');
@@ -82,8 +96,7 @@ export default async function checkOffice(page, origin = 'http://127.0.0.1:4182'
     await page.getByRole('button', { name: '3D office' }).click(); await page.waitForSelector('canvas');
   }
   await page.locator('.office-webgl[aria-busy=false]').waitFor();
-  await page.waitForFunction(() => window.__officeAudit.frames.size === 0);
-  const remounted = await metrics();
+  const remounted = await settledMetrics();
   assert(JSON.stringify(mounted) === JSON.stringify(remounted), `Remount must not accumulate resources/listeners: ${JSON.stringify({ mounted, remounted })}`);
   await canvas.evaluate((element) => element.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext());
   await page.waitForSelector('svg.office-scene'); await page.waitForTimeout(100);

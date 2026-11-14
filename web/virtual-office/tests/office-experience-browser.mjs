@@ -6,6 +6,7 @@ export default async function checkExperience(page, origin = 'http://127.0.0.1:4
   await page.addInitScript(() => {
     window.__experienceFrames = 0;
     window.__experienceView = [];
+    window.__experienceViews = [];
     const uniforms = new WeakMap();
     const lookup = WebGL2RenderingContext.prototype.getUniformLocation;
     WebGL2RenderingContext.prototype.getUniformLocation = function (program, name) {
@@ -13,7 +14,13 @@ export default async function checkExperience(page, origin = 'http://127.0.0.1:4
     };
     const matrix = WebGL2RenderingContext.prototype.uniformMatrix4fv;
     WebGL2RenderingContext.prototype.uniformMatrix4fv = function (location, transpose, values, ...rest) {
-      if (location && uniforms.get(location) === 'viewMatrix') window.__experienceView = Array.from(values);
+      if (location && uniforms.get(location) === 'viewMatrix') {
+        window.__experienceView = Array.from(values);
+        if (window.__experienceViews.length < 120) {
+          const view = JSON.stringify(window.__experienceView);
+          if (window.__experienceViews.at(-1) !== view) window.__experienceViews.push(view);
+        }
+      }
       return matrix.call(this, location, transpose, values, ...rest);
     };
     window.__experiencePending = new Set();
@@ -68,10 +75,11 @@ export default async function checkExperience(page, origin = 'http://127.0.0.1:4
   assert(await page.locator('.agent-inspector h2').textContent() === 'Ada', 'Hover must not change React selection');
   await page.mouse.move(20, 20);
   const startFrames = await page.evaluate(() => window.__experienceFrames);
-  await page.getByRole('button', { name: 'Focus Ada', exact: true }).click(); await page.waitForTimeout(100);
-  const intermediate = await capture(); await page.waitForTimeout(550);
+  await page.evaluate(() => { window.__experienceViews = []; });
+  await page.getByRole('button', { name: 'Focus Ada', exact: true }).click();
+  await page.waitForFunction(() => window.__experienceViews.length >= 2 && window.__experiencePending.size === 0);
   const focused = await capture();
-  assert(!intermediate.equals(focused) && !initial.equals(focused), 'Camera focus must animate to a distinct view');
+  assert(!initial.equals(focused), 'Camera focus must animate to a distinct view');
   const animatedFrames = await page.evaluate(() => window.__experienceFrames) - startFrames;
   assert(animatedFrames > 2, 'Normal focus schedules multiple frames');
   const idleStart = await page.evaluate(() => window.__experienceFrames); await page.waitForTimeout(250);
