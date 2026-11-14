@@ -21,7 +21,6 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     const renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' });
     life.own(() => renderer.forceContextLoss());
     life.own(() => renderer.dispose());
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFShadowMap;
     // Architecture, furniture and lights are static; camera/selection do not invalidate shadows.
@@ -264,13 +263,21 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     const listen = <K extends keyof HTMLElementEventMap>(target: HTMLElement, event: K, fn: (e: HTMLElementEventMap[K]) => void, options?: AddEventListenerOptions) => {
       target.addEventListener(event, fn, options); life.own(() => target.removeEventListener(event, fn, options));
     };
-    const observer = new ResizeObserver(() => {
-      const { width, height } = host.getBoundingClientRect();
-      if (width <= 0 || height <= 0 || life.disposed) return;
-      camera.aspect = width / height; camera.updateProjectionMatrix();
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-      renderer.setSize(width, height, false);
-      if (overview) { orbit = overviewForAspect(camera.aspect); transition = undefined; }
+    let width = 0, height = 0, ratio = 1;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry || life.disposed) return;
+      const nextWidth = entry.contentRect.width, nextHeight = entry.contentRect.height;
+      if (nextWidth <= 0 || nextHeight <= 0) return;
+      const nextRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+      if (width === nextWidth && height === nextHeight && ratio === nextRatio) return;
+      const aspect = nextWidth / nextHeight;
+      if (!width || camera.aspect !== aspect) {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+        if (overview) { orbit = overviewForAspect(aspect); transition = undefined; }
+      }
+      renderer.setDrawingBufferSize(nextWidth, nextHeight, nextRatio);
+      width = nextWidth; height = nextHeight; ratio = nextRatio;
       invalidate();
     });
     life.own(() => observer.disconnect()); observer.observe(host);
@@ -281,6 +288,7 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
       const rect = canvas.getBoundingClientRect();
       if (!rect.width || !rect.height) return undefined;
       pointer.set((x - rect.left) / rect.width * 2 - 1, -(y - rect.top) / rect.height * 2 + 1);
+      for (const avatar of avatars.values()) avatar.updateMatrixWorld();
       raycaster.setFromCamera(pointer, camera);
       hits.length = 0;
       const id: unknown = raycaster.intersectObjects(pickables, false, hits)[0]?.object.userData.agentId;

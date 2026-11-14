@@ -1,5 +1,8 @@
 // Use a foreground Playwright page in a fresh context with downloads enabled.
-export default async function checkOfficeReliability(page, origin = 'http://127.0.0.1:4199') {
+export default async function checkOfficeReliability(page, origin = 'http://127.0.0.1:4199', mode = 'regression') {
+  const durations = { regression: 0, smoke: 300_000, validation: 1_800_000, extended: 3_600_000 };
+  if (!Object.hasOwn(durations, mode)) throw new Error('Unknown reliability test mode');
+  const duration = durations[mode];
   const assert = (condition, message) => { if (!condition) throw new Error(message); };
   const errors = [], external = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -7,7 +10,7 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
   await page.addInitScript(() => {
     const stats = window.reliability = {
       contexts: 0, losses: 0, observers: 0, listeners: 0, urls: 0, failNextDraw: false, failed: false, failureCleanedInFrame: false,
-      pending: new Set(), gl: {},
+      pending: new Set(), gl: {}, intervals: Array(101).fill(0), maxTimers: 0, timers: 0,
     };
     const contexts = new WeakSet();
     const getContext = HTMLCanvasElement.prototype.getContext;
@@ -74,10 +77,28 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
         return super.disconnect();
       }
     };
+    const schedule = window.setTimeout, cancelTimer = window.clearTimeout, timers = new Set();
+    window.setTimeout = function (callback, delay, ...args) {
+      if (typeof callback !== 'function' || ![125, 250, 500].includes(delay)) return schedule(callback, delay, ...args);
+      const id = schedule(function (...values) {
+        timers.delete(id); stats.timers = timers.size;
+        return callback.apply(this, values);
+      }, delay, ...args);
+      timers.add(id);
+      stats.timers = timers.size;
+      stats.maxTimers = Math.max(stats.maxTimers, stats.timers);
+      return id;
+    };
+    window.clearTimeout = (id) => { timers.delete(id); stats.timers = timers.size; cancelTimer(id); };
+    let previousFrame;
     const raf = requestAnimationFrame, cancel = cancelAnimationFrame;
     window.requestAnimationFrame = (callback) => {
       const id = raf((time) => {
         stats.pending.delete(id);
+        if (previousFrame !== undefined && time > previousFrame && time - previousFrame <= 100) {
+          stats.intervals[Math.min(100, Math.round(time - previousFrame))]++;
+        }
+        previousFrame = time;
         const injecting = stats.failNextDraw;
         callback(time);
         if (injecting && stats.failed) {
@@ -112,7 +133,10 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
   const clock = () => page.locator('.simulation-controls time').textContent();
   const steps = async (count) => { for (let i = 0; i < count; i++) await button('Step forward').click(); };
   const fingerprints = new Map(), samples = [];
-  for (let cycle = 0; cycle < 6; cycle++) {
+  const start = Date.now();
+  let cycles = 0;
+  while (duration ? Date.now() - start < duration : cycles < 6) {
+    const cycle = cycles++;
     const scenario = ['day', 'collaboration', 'review'][cycle % 3];
     const selector = page.getByRole('combobox', { name: 'Scenario', exact: true });
     await selector.selectOption(scenario);
@@ -121,6 +145,12 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
     await steps(8);
     assert(await clock() === 'T+00:04.000', 'Scenario tick drift');
     assert((await state()).contexts === before, 'Scenario reset remounted WebGL');
+    if (duration) {
+      await page.getByRole('combobox', { name: 'Speed', exact: true }).selectOption('4');
+      await button('Resume').click();
+      await page.waitForFunction(() => document.querySelector('.simulation-controls').textContent.includes('finished'));
+      assert(await clock() === 'T+00:16.000', 'Continuous playback ended at the wrong horizon');
+    }
     for (const agent of await page.locator('.agent-select').all()) await agent.press('Enter');
     await button('2D floor plan').click();
     await page.locator('svg.office-scene').waitFor();
@@ -144,11 +174,18 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
     await go('activity', 'Activity Timeline');
     await page.waitForFunction(() => {
       const s = window.reliability;
-      return s.observers === 0 && s.listeners === 1 && s.pending.size === 0 && s.urls === 0 && s.losses === s.contexts;
+      return s.observers === 0 && s.listeners === 1 && s.pending.size === 0 && s.urls === 0 && s.timers === 0 && s.losses === s.contexts;
     });
-    samples.push(await state());
+    const sample = await state();
+    const { intervals, ...bounded } = sample;
+    if (samples.length === 32) samples.shift();
+    samples.push({ cycle: cycles, elapsedMs: Date.now() - start, ...bounded });
     await go('office', 'Virtual Office.');
     await canvas.waitFor();
+  }
+  if (duration) {
+    await button('Reset simulation').click();
+    await steps(8);
   }
   await page.getByRole('combobox', { name: 'Speed', exact: true }).selectOption('4');
   await button('Resume').click();
@@ -173,5 +210,7 @@ export default async function checkOfficeReliability(page, origin = 'http://127.
   assert(await button('2D floor plan').evaluate((node) => node === document.activeElement), 'Fallback did not restore keyboard focus');
   await button('Pause').click();
   assert(!errors.length && !external.length, JSON.stringify({ errors, external }));
-  return { cycles: samples.length, afterEachCycle: samples, afterInjectedFailure: await state(), errors, external };
+  const final = await state();
+  assert(final.timers === 0 && final.maxTimers <= 1, 'Playback timers accumulated');
+  return { mode, cycles, elapsedMs: Date.now() - start, afterEachCycle: samples, afterInjectedFailure: final, errors, external };
 }

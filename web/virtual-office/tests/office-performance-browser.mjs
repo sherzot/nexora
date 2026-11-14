@@ -48,6 +48,8 @@ export default async function measureOffice(page, origin = 'http://127.0.0.1:419
       const dispatchMs = performance.now() - start;
       await new Promise((resolve) => setTimeout(resolve, 250));
       return {
+        scriptBytes: performance.getEntriesByType('resource').filter((entry) => /\.js$/.test(entry.name))
+          .reduce((totals, entry) => ({ body: totals.body + entry.encodedBodySize, transfer: totals.transfer + entry.transferSize }), { body: 0, transfer: 0 }),
         loadMs: nav.loadEventEnd, firstDrawMs: initial.time,
         chunkReadyToFirstDrawMs: initial.time - chunk.responseEnd,
         initialDraws: initial.draws, hoverReads: audit.reads - reads,
