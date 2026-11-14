@@ -638,7 +638,8 @@ the standard CLI. Chromium 153.0.8010.12 passed all eight suites and WebKit
 was explicitly reported as NOT RUN on WebKit. Firefox 155.0 (revision 1543)
 was BLOCKED before session creation: the process exited with “Could not
 find profile folder.” A fresh canonical temporary root returned the same
-error. No application compatibility result is available for Firefox.
+error during the initial run. The macOS-specific follow-up below resolved
+that launch blocker and verified the shared suites.
 
 Two timing-sensitive Chromium test observations were corrected. Renderer
 resource snapshots are now captured within the same browser turn that
@@ -673,3 +674,21 @@ recorded 65 steady draw calls, zero idle/settled-pause RAF callbacks and
 zero scenario-switch remounts. Median first draw was 25.7 ms and the
 median run p95 frame interval was 50 ms. These timings are diagnostic
 and do not isolate a performance change. The existing warning remains.
+
+#### M9 Firefox follow-up on macOS 27.2
+
+Firefox 155.0 (revision 1543) reproduced the profile error when launched
+directly with a fresh, writable profile. For test runs, give Firefox a
+fresh app-data root using the process-local Core Foundation setting. This
+addresses the macOS 27 app-data lookup reported in
+[Playwright issue #42768](https://github.com/microsoft/playwright/issues/42768).
+
+```sh
+firefox_test_root=$(mktemp -d /private/tmp/nexora-firefox-suite.XXXXXX)
+CFFIXED_USER_HOME="$firefox_test_root" node tests/run-office-browser.mjs firefox http://127.0.0.1:4205 all
+```
+
+Set `NEXORA_PLAYWRIGHT_MODULE` and serve the guarded build as above. With
+Playwright 1.63.0, all seven shared Firefox suites passed using this
+setting. The CDP screenshot suite remains Chromium-specific. The pinned
+runtime, browser executable and system privacy settings were unchanged.
