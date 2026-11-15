@@ -11,7 +11,7 @@ export function InteractionInspector({ onClear }: { onClear?: () => void }) {
   return <section className="interaction-details" aria-label="Interaction Inspector">
     <div className="section-heading"><h2>{interactionLabels[type]}</h2><button type="button" className="text-button" onClick={() => { onClear?.(); selectInteraction(); }}>Clear interaction</button></div>
     <p><a href={agentHref(source)}>{findAgent(source)?.name}</a> <span aria-hidden="true">→</span><span className="sr-only"> to </span> <a href={agentHref(target)}>{findAgent(target)?.name}</a></p>
-    <p><a href={`#/tasks?task=${encodeURIComponent(taskId)}`}>{findTask(taskId)?.title}</a></p>
+    <p><a href={`#/tasks?task=${encodeURIComponent(taskId)}`}>{findTask(taskId)?.title}</a> <a href={`#/tasks/${encodeURIComponent(taskId)}`}>Open task workspace</a></p>
     <dl className="detail-facts">
       <div><dt>Scenario</dt><dd>{scenarios.find((item) => item.id === scenario)?.name}</dd></div>
       <div><dt>Synthetic status</dt><dd>{status === 'pending' ? 'Planned' : status}</dd></div>
