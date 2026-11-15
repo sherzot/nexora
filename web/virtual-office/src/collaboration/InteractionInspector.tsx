@@ -1,4 +1,4 @@
-import { findAgent, findTask } from '../demo/selectors';
+import { agentHref, findAgent, findTask } from '../demo/selectors';
 import { useSimulation } from '../simulation/SimulationProvider';
 import { scenarios } from '../simulation/scenarios';
 import { virtualTime } from '../simulation/selectors';
@@ -10,8 +10,8 @@ export function InteractionInspector({ onClear }: { onClear?: () => void }) {
   const { id, scenario, type, source, target, taskId, status, evidence, predecessor } = interaction;
   return <section className="interaction-details" aria-label="Interaction Inspector">
     <div className="section-heading"><h2>{interactionLabels[type]}</h2><button type="button" className="text-button" onClick={() => { onClear?.(); selectInteraction(); }}>Clear interaction</button></div>
-    <p>{findAgent(source)?.name} <span aria-label="to">→</span> {findAgent(target)?.name}</p>
-    <p>{findTask(taskId)?.title}</p>
+    <p><a href={agentHref(source)}>{findAgent(source)?.name}</a> <span aria-hidden="true">→</span><span className="sr-only"> to </span> <a href={agentHref(target)}>{findAgent(target)?.name}</a></p>
+    <p><a href={`#/tasks?task=${encodeURIComponent(taskId)}`}>{findTask(taskId)?.title}</a></p>
     <dl className="detail-facts">
       <div><dt>Scenario</dt><dd>{scenarios.find((item) => item.id === scenario)?.name}</dd></div>
       <div><dt>Synthetic status</dt><dd>{status === 'pending' ? 'Planned' : status}</dd></div>

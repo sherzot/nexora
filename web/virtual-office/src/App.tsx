@@ -1,6 +1,7 @@
 import { CollaborationOverview } from './views/CollaborationOverview';
 import { useEffect, useState } from 'react';
 import { AnalyticsOverview } from './views/AnalyticsOverview';
+import { SimulationTimeline } from './simulation/SimulationTimeline';
 import { SimulationControls } from './simulation/SimulationControls';
 import { useSimulation } from './simulation/SimulationProvider';
 import { AppShell } from './components/AppShell';
@@ -54,7 +55,7 @@ export default function App() {
     case 'agents': content = <AgentDirectory />; break;
     case 'agent': content = <AgentDetail id={route.agentId ?? ''} />; break;
     case 'tasks': content = <TaskBoard focusedId={route.taskId} />; break;
-    case 'activity': content = <ActivityTimeline interactionId={route.interactionId} />; break;
+    case 'activity': content = route.interactionId ? <SimulationTimeline interactionId={route.interactionId} /> : <ActivityTimeline />; break;
     case 'collaboration': content = <CollaborationOverview />; break;
     case 'analytics': content = <AnalyticsOverview />; break;
     case 'workspace': content = <WorkspaceOverview theme={theme} onTheme={setTheme} reducedMotion={reducedMotion} onMotion={setReducedMotion} onReset={reset} />; break;
