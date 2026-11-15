@@ -716,3 +716,19 @@ and browser setup above. Run
 mode also runs the journey. The suite verifies keyboard route focus,
 task status, evidence identity, Back/Forward, reset recovery, and SVG
 navigation at 320 and 390 CSS pixels. This is a synthetic local demo.
+
+### C13 synthetic coordination sandbox
+
+Select an Office agent, open its profile, then choose **Open task workspace**
+on a linked task. The same workspace is available from the Task Board and
+Interaction Inspector. Step playback to populate observed task interactions.
+Choose an alternative scenario to compare at the current seed and tick.
+The comparison keeps its captured tick as playback advances. Only observed
+links open Timeline evidence. **Reset preview** returns focus to the chooser.
+Leaving the workspace or resetting playback clears the preview. Use
+**Return to Office** to revisit the current Office selection.
+
+With the guarded build served on loopback and the existing Playwright setup,
+run `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 coordination`.
+Firefox uses the macOS workaround above. WebKit uses the same command with
+`webkit`. The `all` mode includes both the C12 and C13 journeys.
