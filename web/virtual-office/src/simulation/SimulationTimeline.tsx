@@ -11,7 +11,9 @@ import { virtualTime } from './selectors';
 export function SimulationTimeline({ interactionId }: { interactionId?: string }) {
   const { view, selectedId, select, collaboration, interaction, selectInteraction } = useSimulation();
   const [kind, setKind] = useState(interactionId ? 'collaboration' : 'activity');
-  const linked = interactionId && collaboration.observed.some((item) => item.id === interactionId) ? interactionId : undefined;
+  // Resolve a link when entering this view, never when a later tick reuses an ID.
+  const [linked] = useState(() => interactionId && collaboration.observed.some((item) => item.id === interactionId) ? interactionId : undefined);
+  const unavailable = Boolean(interactionId && !linked);
   const opened = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!linked || opened.current === linked) return;
@@ -25,7 +27,7 @@ export function SimulationTimeline({ interactionId }: { interactionId?: string }
     (trigger ?? interactionType.current)?.focus();
   };
   const [type, setType] = useState('');
-  const projected = collaboration.observed.filter((item) => (!type || item.type === type)
+  const projected = (unavailable ? [] : collaboration.observed).filter((item) => (!type || item.type === type)
     && (!interactionId || interactionId === item.id));
   const [focused, setFocused] = useState(false);
   const [agent, setAgent] = useState(''), [activity, setActivity] = useState(''), [zone, setZone] = useState('');
@@ -47,8 +49,9 @@ export function SimulationTimeline({ interactionId }: { interactionId?: string }
           <p>{findAgent(item.source)?.name} → {findAgent(item.target)?.name} · {findTask(item.taskId)?.title}</p>
           <button className="text-button" type="button" aria-pressed={interaction?.id === item.id} onClick={() => selectInteraction(item.id)}>Inspect interaction</button>
         </article></li>)}</ol>
-      {!projected.length && <p className="empty-state">No observed interactions match. Advance playback or change the filter.</p>}
-      <InteractionInspector onClear={restoreInteractionFocus} />
+      {unavailable && <p role="status">This interaction is unavailable in the current playback. <a href="#/activity">Return to Timeline</a></p>}
+      {!unavailable && !projected.length && <p className="empty-state">No observed interactions match. Advance playback or change the filter.</p>}
+      {!unavailable && (!interactionId || interaction?.id === linked) && <InteractionInspector onClear={restoreInteractionFocus} />}
     </> : <>
     <label className="simulation-filter"><input type="checkbox" checked={focused} onChange={(event) => setFocused(event.target.checked)} />Only selected agent: {findAgent(selectedId)?.name}</label>
     <div className="filter-bar"><label>Timeline agent<select value={agent} disabled={focused} onChange={(event) => setAgent(event.target.value)}><option value="">All agents</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Activity type<select value={activity} onChange={(event) => setActivity(event.target.value)}><option value="">All activities</option>{activityOrder.map((item) => <option key={item}>{item}</option>)}</select></label><label>Timeline zone<select value={zone} onChange={(event) => setZone(event.target.value)}><option value="">All zones</option>{rooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>From tick (500 ms)<input type="number" min="0" max="32" step="1" value={from} onChange={(event) => setFrom(Math.min(32, Math.max(0, Math.trunc(Number(event.target.value) || 0))))} /></label><label>Through tick (inclusive)<input type="number" min="0" max="32" step="1" value={to} onChange={(event) => setTo(Math.min(32, Math.max(0, Math.trunc(Number(event.target.value) || 0))))} /></label><label>Search synthetic events<input type="search" value={search} maxLength={120} onChange={(event) => setSearch(event.target.value)} /></label><button className="text-button" onClick={clear}>Clear simulation filters</button></div>

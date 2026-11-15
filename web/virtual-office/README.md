@@ -692,3 +692,27 @@ Set `NEXORA_PLAYWRIGHT_MODULE` and serve the guarded build as above. With
 Playwright 1.63.0, all seven shared Firefox suites passed using this
 setting. The CDP screenshot suite remains Chromium-specific. The pinned
 runtime, browser executable and system privacy settings were unchanged.
+
+### C12 product journey
+
+1. In the Office, select a synthetic agent by its marker or agent button.
+   Open **View agent details**, follow a linked task to the board, then use
+   **Return to Office**. Agent profiles and the board show the same task
+   status once the simulation is active.
+2. Step playback until collaboration evidence exists, then choose
+   **Explore collaboration**. Open an observed step and follow its event
+   link to the Timeline. The inspector links to the related task and both
+   participants. Browser Back and Forward revisit the corresponding routes.
+3. Return to the Office from the task or profile. The shared selection retains
+   the inspected interaction and its participant cues during navigation.
+   Reset or scenario change clears epoch-bound selection. An unavailable
+   evidence link offers a return to the Timeline without reopening itself
+   as playback advances.
+
+Serve the guarded build on loopback and use the existing Playwright runtime
+and browser setup above. Run
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 journey`
+(or select `firefox` with the macOS workaround, or `webkit`). The `all`
+mode also runs the journey. The suite verifies keyboard route focus,
+task status, evidence identity, Back/Forward, reset recovery, and SVG
+navigation at 320 and 390 CSS pixels. This is a synthetic local demo.

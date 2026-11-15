@@ -9,11 +9,12 @@ import { StatusLabel } from '../components/StatusLabel';
 const columns: readonly TaskStatus[] = ['Planned', 'In progress', 'In review', 'Done'];
 export function TaskBoard({ focusedId = '' }: { focusedId?: string }) {
   const { view } = useSimulation();
-  const displayed = view.snapshot.active ? tasks.map((task) => ({ ...task, status: view.snapshot.taskStates[task.id] })) : tasks;
+  const displayed = view.snapshot.active ? tasks.map((task) => ({ ...task, status: view.snapshot.taskStates[task.id] ?? task.status })) : tasks;
   const [workflow, setWorkflow] = useState('');
   const [agent, setAgent] = useState('');
   const visible = displayed.filter((task) => (!workflow || task.workflowId === workflow) && (!agent || task.agentIds.some((id) => id === agent)) && (!focusedId || task.id === focusedId));
   return <><section className="page-heading"><div><p className="eyebrow">WORK, AS AN ILLUSTRATION</p><h1 id="page-title" tabIndex={-1}>Task Board</h1><p className="page-description">{view.snapshot.active ? 'Synthetic simulation task states · no operational workflow or approvals.' : 'Fixed task examples. Columns describe presentation states, not live Run lifecycle or dispatch.'}</p></div><span className="quiet-label">{tasks.length} synthetic tasks</span></section>
+    <a className="back-link" href="#/office">Return to Office</a>
     <div className="workflow-overview">{workflows.map((item) => <div key={item.id}><span className="overline">DEMO WORKFLOW PRESENTATION</span><h2>{item.title}</h2><p>{item.stages.join(' → ')}</p></div>)}</div>
     <div className="filter-bar"><label>Workflow presentation<select value={workflow} onChange={(event) => setWorkflow(event.target.value)}><option value="">All workflow examples</option>{workflows.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label>Linked agent<select value={agent} onChange={(event) => setAgent(event.target.value)}><option value="">All agents</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{focusedId && <a className="back-link" href="#/tasks">Clear task focus</a>}</div>
     {focusedId && <p className="scope-note">{findTask(focusedId) ? `Focused example: ${findTask(focusedId)?.title}` : 'Unknown task identifier. No fixture matches this link.'}</p>}
