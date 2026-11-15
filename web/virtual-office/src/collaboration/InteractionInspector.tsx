@@ -4,12 +4,12 @@ import { scenarios } from '../simulation/scenarios';
 import { virtualTime } from '../simulation/selectors';
 import { interactionLabels } from './projection';
 
-export function InteractionInspector() {
+export function InteractionInspector({ onClear }: { onClear?: () => void }) {
   const { interaction, selectInteraction } = useSimulation();
   if (!interaction) return null;
   const { id, scenario, type, source, target, taskId, status, evidence, predecessor } = interaction;
   return <section className="interaction-details" aria-label="Interaction Inspector">
-    <div className="section-heading"><h2>{interactionLabels[type]}</h2><button type="button" className="text-button" onClick={() => selectInteraction()}>Clear interaction</button></div>
+    <div className="section-heading"><h2>{interactionLabels[type]}</h2><button type="button" className="text-button" onClick={() => { onClear?.(); selectInteraction(); }}>Clear interaction</button></div>
     <p>{findAgent(source)?.name} <span aria-label="to">→</span> {findAgent(target)?.name}</p>
     <p>{findTask(taskId)?.title}</p>
     <dl className="detail-facts">

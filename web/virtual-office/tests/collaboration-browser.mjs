@@ -14,7 +14,39 @@ export default async function checkCollaboration(page, origin = 'http://127.0.0.
     const planned = graph.locator('[data-status="pending"]');
     await planned.first().waitFor();
     expect(await planned.count() === 48, 'The initial graph should contain only planned review steps');
-    await graph.getByRole('button', { name: /Task assignment/ }).first().press('Enter');
+    const steps = graph.locator('.workflow-node');
+    const firstStep = steps.first();
+    const taskFilter = page.getByLabel('Workflow task');
+    const clear = inspector.getByRole('button', { name: 'Clear interaction' });
+    // macOS WebKit's default tab mode skips buttons unless Option is held.
+    const nextFocus = typeof process !== 'undefined' && process.platform === 'darwin' && page.context().browser()?.browserType().name() === 'webkit'
+      ? 'Alt+Tab' : 'Tab';
+    const assertFocus = async (locator, message) => {
+      expect(await locator.evaluate((node) => node === document.activeElement
+        && node.matches(':focus-visible') && getComputedStyle(node).outlineStyle !== 'none'), message);
+    };
+    await firstStep.press('Enter');
+    await clear.press('Enter');
+    await inspector.waitFor({ state: 'detached' });
+    await assertFocus(firstStep, 'Clearing the inspector must restore visible focus to the selected step');
+    expect(await firstStep.getAttribute('aria-pressed') === 'false', 'Interaction selection was not cleared');
+    await page.keyboard.press(nextFocus);
+    await assertFocus(steps.nth(1), 'Tab must advance to the next workflow step');
+
+    await firstStep.press('Enter');
+    const taskTitle = await graph.locator('.collaboration-flow h2').first().innerText();
+    const otherTask = await taskFilter.locator('option').evaluateAll((options, title) =>
+      options.find((option) => option.value && option.textContent !== title)?.value, taskTitle);
+    expect(otherTask, 'Fixture must supply a different task for the focus fallback');
+    await taskFilter.selectOption(otherTask);
+    expect(await graph.locator('[aria-pressed="true"]').count() === 0, 'Selected step should be filtered out');
+    await clear.press('Enter');
+    await inspector.waitFor({ state: 'detached' });
+    await assertFocus(taskFilter, 'Clearing a filtered interaction must restore visible focus to the task filter');
+    await page.keyboard.press(nextFocus);
+    await assertFocus(page.getByRole('button', { name: 'Zoom out', exact: true }), 'Tab must continue from the task filter');
+    await taskFilter.selectOption('');
+    await firstStep.press('Enter');
     expect((await inspector.innerText()).includes('Pending playback'), 'Planned step has an observed timestamp');
     await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
     expect(await page.getByLabel('Workflow scale').innerText() === '120%', 'Graph zoom did not change');
@@ -56,7 +88,7 @@ export default async function checkCollaboration(page, origin = 'http://127.0.0.
     expect(await inspector.count() === 0, 'Reset retained a stale interaction');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'Mobile graph overflowed horizontally');
     expect(!external.length && !errors.length, JSON.stringify({ external, errors }));
-    return { graph: 'PASS', keyboard: 'PASS', inspector: 'PASS', timeline: 'PASS', office: 'PASS', mobileReducedMotion: 'PASS', external, errors };
+    return { focusRestoration: 'PASS', focusFallback: 'PASS', graph: 'PASS', keyboard: 'PASS', inspector: 'PASS', timeline: 'PASS', office: 'PASS', mobileReducedMotion: 'PASS', external, errors };
   } finally {
     page.off('request', onRequest);
     page.off('pageerror', onError);
