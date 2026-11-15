@@ -732,3 +732,22 @@ With the guarded build served on loopback and the existing Playwright setup,
 run `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 coordination`.
 Firefox uses the macOS workaround above. WebKit uses the same command with
 `webkit`. The `all` mode includes both the C12 and C13 journeys.
+
+### C14 synthetic mission planning
+
+From the Office, choose **Plan a mission**. Select fixture tasks and add
+prerequisites by choosing the dependent task and its required task.
+Use **Assume complete** to explore readiness under hypothetical completion
+assumptions. Capture Plan A, then edit Plan B to compare prerequisites,
+task membership and readiness under the current assumptions. An invalid
+comparison explains the conflicting assumptions.
+
+The mission draft is local to the page, separate from playback. **Reset
+mission** clears both plans and returns focus to task selection. Leaving or
+reloading the route clears the draft. **Return to Office** preserves Office
+selection according to the existing playback rules.
+
+With the guarded build served on loopback, run
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission`.
+Use the existing Playwright setup above for Firefox and WebKit. The
+`all` mode includes the C12, C13 and C14 journeys.
