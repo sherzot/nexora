@@ -65,9 +65,25 @@ export default async function checkCollaboration(page, origin = 'http://127.0.0.
     await eventLink.click();
     await page.locator('[data-collaboration-event]').waitFor();
     expect(await page.locator('[data-collaboration-event]').count() === 1, 'Timeline link did not isolate the interaction');
-    await page.getByLabel('Interaction type').selectOption('handoff');
+    expect(await inspector.count() === 1, 'Direct link must open the Timeline inspector');
+    const timelineTrigger = page.getByRole('button', { name: 'Inspect interaction', exact: true });
+    await clear.press('Enter');
+    await inspector.waitFor({ state: 'detached' });
+    await assertFocus(timelineTrigger, 'Clearing a direct-linked interaction must restore focus to its row');
+    expect(await timelineTrigger.getAttribute('aria-pressed') === 'false', 'Timeline selection was not cleared');
+    await timelineTrigger.press('Enter');
+
+    const interactionType = page.getByLabel('Interaction type');
+    await interactionType.selectOption('handoff');
     expect(await page.locator('[data-collaboration-event]').count() === 0, 'Interaction filter did not exclude approval');
-    await page.getByLabel('Interaction type').selectOption('approval');
+    await clear.press('Enter');
+    await inspector.waitFor({ state: 'detached' });
+    await assertFocus(interactionType, 'Clearing a filtered Timeline interaction must focus the type control');
+    await page.keyboard.press(nextFocus);
+    await assertFocus(page.getByRole('link', { name: 'Clear interaction link' }), 'Sequential focus must continue from the type filter');
+    await interactionType.selectOption('approval');
+    expect(await timelineTrigger.getAttribute('aria-pressed') === 'false', 'Filtered interaction selection was not cleared');
+    await timelineTrigger.press('Enter');
     await inspector.getByRole('link', { name: 'Inspect in Office' }).click();
     await page.locator('.office-webgl canvas').waitFor();
     await page.locator('[data-office-interaction]').waitFor();
@@ -76,6 +92,15 @@ export default async function checkCollaboration(page, origin = 'http://127.0.0.
     expect(await page.locator('.office-webgl canvas').count() === 0, 'Canvas was retained after switching to 2D');
     await page.getByRole('button', { name: 'Clear interaction' }).click();
     expect(await page.locator('[data-collaboration-agent]').count() === 0, 'Cleared selection left SVG cues');
+
+    await page.goto(origin + '/#/activity');
+    await page.getByLabel('Timeline stream').selectOption('collaboration');
+    await timelineTrigger.first().press('Enter');
+    await clear.press('Enter');
+    await inspector.waitFor({ state: 'detached' });
+    await assertFocus(timelineTrigger.first(), 'Clearing a visible Timeline row must restore focus to its button');
+    await page.keyboard.press(nextFocus);
+    await assertFocus(timelineTrigger.nth(1), 'Sequential focus must advance to the next Timeline interaction');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(origin + '/#/collaboration');

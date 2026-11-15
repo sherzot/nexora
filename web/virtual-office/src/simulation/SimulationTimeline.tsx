@@ -18,6 +18,12 @@ export function SimulationTimeline({ interactionId }: { interactionId?: string }
     opened.current = linked;
     selectInteraction(linked);
   }, [linked, selectInteraction]);
+  const interactionList = useRef<HTMLOListElement>(null);
+  const interactionType = useRef<HTMLSelectElement>(null);
+  const restoreInteractionFocus = () => {
+    const trigger = interactionList.current?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+    (trigger ?? interactionType.current)?.focus();
+  };
   const [type, setType] = useState('');
   const projected = collaboration.observed.filter((item) => (!type || item.type === type)
     && (!interactionId || interactionId === item.id));
@@ -31,18 +37,18 @@ export function SimulationTimeline({ interactionId }: { interactionId?: string }
       <option value="activity">Simulation activity</option><option value="collaboration">Collaboration projection</option>
     </select></label></div>
     {kind === 'collaboration' ? <>
-      <div className="filter-bar"><label>Interaction type<select value={type} onChange={(event) => setType(event.target.value)}>
+      <div className="filter-bar"><label>Interaction type<select ref={interactionType} value={type} onChange={(event) => setType(event.target.value)}>
         <option value="">All interactions</option>{(Object.keys(interactionLabels) as InteractionType[]).map((key) => <option key={key} value={key}>{interactionLabels[key]}</option>)}
       </select></label>{interactionId && <a href="#/activity">Clear interaction link</a>}</div>
       <p className="result-count" aria-live={view.mode === 'playing' ? 'off' : 'polite'}>{projected.length} observed collaboration interactions</p>
-      <ol className="activity-timeline">{projected.map((item) => <li key={item.id} data-collaboration-event={item.id}>
+      <ol ref={interactionList} className="activity-timeline">{projected.map((item) => <li key={item.id} data-collaboration-event={item.id}>
         <time>{virtualTime(item.evidence!.virtualMs)}</time><span aria-hidden="true">↳</span>
         <article><span className="overline">COLLABORATION PROJECTION</span><h2>{interactionLabels[item.type]}</h2>
           <p>{findAgent(item.source)?.name} → {findAgent(item.target)?.name} · {findTask(item.taskId)?.title}</p>
           <button className="text-button" type="button" aria-pressed={interaction?.id === item.id} onClick={() => selectInteraction(item.id)}>Inspect interaction</button>
         </article></li>)}</ol>
       {!projected.length && <p className="empty-state">No observed interactions match. Advance playback or change the filter.</p>}
-      <InteractionInspector />
+      <InteractionInspector onClear={restoreInteractionFocus} />
     </> : <>
     <label className="simulation-filter"><input type="checkbox" checked={focused} onChange={(event) => setFocused(event.target.checked)} />Only selected agent: {findAgent(selectedId)?.name}</label>
     <div className="filter-bar"><label>Timeline agent<select value={agent} disabled={focused} onChange={(event) => setAgent(event.target.value)}><option value="">All agents</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Activity type<select value={activity} onChange={(event) => setActivity(event.target.value)}><option value="">All activities</option>{activityOrder.map((item) => <option key={item}>{item}</option>)}</select></label><label>Timeline zone<select value={zone} onChange={(event) => setZone(event.target.value)}><option value="">All zones</option>{rooms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>From tick (500 ms)<input type="number" min="0" max="32" step="1" value={from} onChange={(event) => setFrom(Math.min(32, Math.max(0, Math.trunc(Number(event.target.value) || 0))))} /></label><label>Through tick (inclusive)<input type="number" min="0" max="32" step="1" value={to} onChange={(event) => setTo(Math.min(32, Math.max(0, Math.trunc(Number(event.target.value) || 0))))} /></label><label>Search synthetic events<input type="search" value={search} maxLength={120} onChange={(event) => setSearch(event.target.value)} /></label><button className="text-button" onClick={clear}>Clear simulation filters</button></div>
