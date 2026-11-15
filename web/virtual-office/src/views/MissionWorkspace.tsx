@@ -32,7 +32,8 @@ export function MissionWorkspace() {
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
   const selected = tasks.filter(({ id }) => draft.taskIds.includes(id));
-  const evaluation = evaluatePlan(draft, assumptions, catalog);
+  const assumptionTasks = tasks.filter(({ id }) => draft.taskIds.includes(id) || reference?.taskIds.includes(id));
+  const evaluation = evaluatePlan(draft, assumptions.filter((id) => draft.taskIds.includes(id)), catalog);
   const comparison = reference && comparePlans(reference, draft, assumptions, catalog);
 
   function toggleTask(id: string, checked: boolean) {
@@ -43,10 +44,11 @@ export function MissionWorkspace() {
     }
     const edges = draft.edges.filter((edge) => edge.dependentId !== id && edge.prerequisiteId !== id);
     setDraft({ taskIds: draft.taskIds.filter((taskId) => taskId !== id), edges });
-    setAssumptions(assumptions.filter((taskId) => taskId !== id));
+    const retainedByReference = reference?.taskIds.includes(id);
+    if (!retainedByReference) setAssumptions(assumptions.filter((taskId) => taskId !== id));
     if (dependentId === id) setDependent('');
     if (prerequisiteId === id) setPrerequisite('');
-    setNotice(`Removed ${title(id)}, ${draft.edges.length - edges.length} prerequisites and its completion assumption if set.`);
+    setNotice(`Removed ${title(id)}, ${draft.edges.length - edges.length} prerequisites from Plan B.${retainedByReference ? ' Its assumption remains editable for Plan A.' : ''}`);
   }
 
   return <>
@@ -92,14 +94,18 @@ export function MissionWorkspace() {
       })}</ul>
     </section>
     <fieldset className="content-section"><legend>Hypothetical completion assumptions</legend>
-      {selected.map(({ id, title }) => <p key={id}><label>
+      {assumptionTasks.map(({ id, title }) => <p key={id}><label>
         <input type="checkbox" checked={assumptions.includes(id)} onChange={(event) => {
           const next = event.target.checked ? [...assumptions, id] : assumptions.filter((item) => item !== id);
-          const result = evaluatePlan(draft, next, catalog);
-          if (event.target.checked && result.error) { setNotice(result.error); return; }
+          const check = reference && comparePlans(reference, draft, next, catalog);
+          const draftError = evaluatePlan(draft, next.filter((taskId) => draft.taskIds.includes(taskId)), catalog).error;
+          const error = check?.reference.error ? `Plan A: ${check.reference.error}` : draftError && `Plan B: ${draftError}`;
+          if (event.target.checked && error) { setNotice(error); return; }
           setAssumptions(next);
           setNotice('');
-        }} /> Assume complete: {title}
+        }} /> Assume complete: {title}{reference && (reference.taskIds.includes(id)
+          ? draft.taskIds.includes(id) ? ' (Plan A and Plan B)' : ' (Plan A only)'
+          : ' (Plan B only)')}
       </label></p>)}
     </fieldset>
     <p role="status">{notice}</p>
@@ -108,6 +114,7 @@ export function MissionWorkspace() {
     </section>
     <div className="filter-bar">
       <button type="button" className="text-button" onClick={() => {
+        setAssumptions(assumptions.filter((id) => draft.taskIds.includes(id)));
         setReference({ taskIds: [...draft.taskIds], edges: draft.edges.map((edge) => ({ ...edge })) });
         setNotice('Captured Plan A. Continue editing Plan B.');
       }}>Capture Plan A</button>

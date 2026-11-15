@@ -78,3 +78,16 @@ test('comparison preserves each plan error and handles empty plans', () => {
   assert.equal(empty.equal, true);
   assert.equal(empty.reference.tasks.length, 0);
 });
+
+test('removing a task from the draft preserves reference-only completion assumptions', () => {
+  const reference = plan(['a', 'b'], [edge('a', 'b')]);
+  const draft = plan(['b']);
+  const { reference: a, draft: b } = comparePlans(reference, draft, ['a'], catalog);
+  assert.deepEqual(Array.from(a.tasks, ({ status }) => status), ['Assumed complete', 'Ready in this plan']);
+  assert.equal(b.error, undefined);
+  assert.deepEqual(Array.from(b.tasks, ({ status }) => status), ['Ready in this plan']);
+  assert.equal(comparePlans(reference, draft, [], catalog).reference.tasks[1].status, 'Blocked in this plan');
+  const invalid = comparePlans(reference, draft, ['b'], catalog);
+  assert.match(invalid.reference.error, /prerequisites are unmet/);
+  assert.equal(invalid.reference.tasks.length, 0);
+});

@@ -56,9 +56,20 @@ export default async function checkMissionJourney(page, origin) {
   assert((await plan.getByRole('region', { name: 'Plan A' }).innerText()).includes('Blocked in this plan'), 'Reference graph changed with the draft');
   assert(!(await plan.getByRole('region', { name: 'Plan B' }).innerText()).includes('Blocked in this plan'), 'Draft must reflect the removed edge');
   await assumptions.nth(1).press('Space');
-  await plan.getByText(/Readiness comparison unavailable/).waitFor();
-  assert(await plan.getByText('Ready in this plan', { exact: false }).count() === 0, 'Do not show results under conflicting assumptions');
-  await assumptions.nth(1).press('Space');
+  assert(!(await assumptions.nth(1).isChecked()), 'Shared assumption must also satisfy Plan A prerequisites');
+  await page.getByText(/Plan A: Cannot assume/).waitFor();
+
+  await assumptions.first().press('Space');
+  await tasks.first().press('Space');
+  const referenceOnly = page.getByRole('checkbox', { name: /Assume complete:.*Plan A only/ });
+  assert(await referenceOnly.isChecked(), 'Removing a task from Plan B must preserve the Plan A assumption');
+  const reference = plan.getByRole('region', { name: 'Plan A' });
+  assert((await reference.innerText()).includes('Assumed complete'), 'Plan A must retain its assumed completion');
+  assert(!(await blocked.innerText()).includes('Assumed complete'), 'Plan B must ignore Plan A-only assumptions');
+  await referenceOnly.press('Space');
+  assert((await reference.innerText()).includes('Blocked in this plan'), 'Editing an A-only assumption must update Plan A readiness');
+  await referenceOnly.press('Space');
+  assert(await referenceOnly.isChecked() && (await reference.innerText()).includes('Assumed complete'), 'Plan A-only assumption must be restorable');
   await tasks.nth(2).press('Space');
   assert(!(await plan.getByRole('region', { name: 'Plan A' }).innerText()).includes('Only in Plan A: None'), 'Plan-only task should be shown');
   assert(await clock() === before, 'Mission edits must not advance playback');
