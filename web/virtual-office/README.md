@@ -614,3 +614,81 @@ contains no WebGL renderer markers. The lazy chunk retains the WebGL
 renderer, standard lit materials and shadow code. No WebGPU or audited
 decoder markers appeared in either chunk. The 500 kB threshold remains
 in effect. No safe bundle reduction was demonstrated.
+
+### M9 browser result reporting
+
+The local runner emits one JSON record per suite with its engine, version,
+registered executable, and PASS or FAIL status. A launch error is BLOCKED
+and identifies the registered executable. Suite failures leave a nonzero
+exit status while allowing the remaining suites to run. The registered
+Chromium executable may differ from the headless shell actually launched.
+Set `NEXORA_BROWSER_EXECUTABLE` to an approved absolute executable path when
+the exact binary must be selected explicitly.
+
+With an approved Playwright 1.63.0 runtime, the standard provisioning command
+is `node /absolute/path/to/playwright-core/cli.js install firefox webkit`.
+Use `--dry-run` first to review platform, revisions and mirrors. The pinned
+macOS ARM64 revisions for this environment are Firefox 1543 and WebKit 2359.
+The standard browser installation is separate from NEXORA's package and
+native build policy.
+
+On macOS 27.2 ARM64, the pinned Firefox and WebKit archives installed via
+the standard CLI. Chromium 153.0.8010.12 passed all eight suites and WebKit
+26.6 passed all seven shared suites. The Chromium-only screenshot suite
+was explicitly reported as NOT RUN on WebKit. Firefox 155.0 (revision 1543)
+was BLOCKED before session creation: the process exited with “Could not
+find profile folder.” A fresh canonical temporary root returned the same
+error during the initial run. The macOS-specific follow-up below resolved
+that launch blocker and verified the shared suites.
+
+Two timing-sensitive Chromium test observations were corrected. Renderer
+resource snapshots are now captured within the same browser turn that
+observes an empty RAF queue. The camera test records distinct animated
+view matrices and compares the settled viewport image, avoiding a
+fixed-time screenshot whose capture can finish after the transition.
+
+Chromium 153.0.8010.12 used the Playwright 1243 ARM64 headless shell
+(`chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell`
+under the Playwright cache). The WebKit launcher was `webkit-2359/pw_run.sh`.
+Firefox attempted `firefox-1543/firefox/Nightly.app/Contents/MacOS/firefox`.
+
+| Chromium stress mode | Elapsed | Cycles | Contexts created / lost | RAF median / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Smoke | 305.529 s | 60 | 121 / 121 | 17 / 50 ms |
+| Validation | 1,802.801 s | 380 | 761 / 761 | 17 / 33 ms |
+| Extended | 3,604.176 s | 744 | 1,489 / 1,489 | 17 / 33 ms |
+
+The modes overlapped in separate processes on the same Apple M2 host.
+All three passed with at most one tracked timer and zero canvases,
+observers, pending frames, tracked timers and export URLs after teardown.
+The extended run counted 20,826 buffer creations and deletions and
+20,826 vertex-array creations and deletions. The retained extended-run
+heap samples ranged from 39.6 to 50.4 MB. These coarse Chromium readings
+and the bounded sample window cannot establish a heap trend. WebKit's
+six-cycle regression passed with 13 contexts created and lost, and
+exposed no heap reading. GPU memory bytes were unavailable.
+
+Production JS matched M8 byte for byte (267,873 B main, 546,137 B lazy
+renderer). The Chromium benchmark ran with stress processes active and
+recorded 65 steady draw calls, zero idle/settled-pause RAF callbacks and
+zero scenario-switch remounts. Median first draw was 25.7 ms and the
+median run p95 frame interval was 50 ms. These timings are diagnostic
+and do not isolate a performance change. The existing warning remains.
+
+#### M9 Firefox follow-up on macOS 27.2
+
+Firefox 155.0 (revision 1543) reproduced the profile error when launched
+directly with a fresh, writable profile. For test runs, give Firefox a
+fresh app-data root using the process-local Core Foundation setting. This
+addresses the macOS 27 app-data lookup reported in
+[Playwright issue #42768](https://github.com/microsoft/playwright/issues/42768).
+
+```sh
+firefox_test_root=$(mktemp -d /private/tmp/nexora-firefox-suite.XXXXXX)
+CFFIXED_USER_HOME="$firefox_test_root" node tests/run-office-browser.mjs firefox http://127.0.0.1:4205 all
+```
+
+Set `NEXORA_PLAYWRIGHT_MODULE` and serve the guarded build as above. With
+Playwright 1.63.0, all seven shared Firefox suites passed using this
+setting. The CDP screenshot suite remains Chromium-specific. The pinned
+runtime, browser executable and system privacy settings were unchanged.
