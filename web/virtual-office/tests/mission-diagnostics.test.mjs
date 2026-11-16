@@ -53,6 +53,13 @@ test('projects direct blockers, final completion, and fixture-order selection', 
   assert.equal(task(ready, c.id).unblockedBy.taskId, b.id);
   assert.equal(task(ready, c.id).unblockedBy.step, 4);
   assert.equal(task(ready, c.id).unblockedBy.provenance, 'hypothetical');
+  for (const [step, status] of [[5, 'Active'], [6, 'Completed'], [8, 'Completed']]) {
+    const recorded = advance(initial, step);
+    const inspected = task(diagnoseMission(recorded), c.id);
+    assert.equal(inspected.status, status);
+    assert.deepEqual(inspected.unblockedBy, recorded.events[3]);
+    assert.equal(task(diagnoseMission(recorded), a.id).unblockedBy, undefined);
+  }
   const terminal = diagnoseMission(advance(initial, 8));
   assert.equal(terminal.next, undefined);
   assert.equal(terminal.terminal, true);
@@ -70,6 +77,18 @@ test('distinguishes assumed completion and all-assumed terminal previews', () =>
   assert.equal(diagnoseMission(allAssumed).terminal, true);
   assert.equal(diagnoseMission(allAssumed).next, undefined);
   assert.equal(allAssumed.events.length, 0);
+});
+
+test('never attributes initial readiness to a simulated completion when prerequisites were assumed', () => {
+  const initial = createMissionPreview(plan, [a.id, b.id], assignments);
+  for (const [steps, status] of [[0, 'Ready'], [1, 'Active'], [2, 'Completed'], [4, 'Completed']]) {
+    const diagnosed = diagnoseMission(advance(initial, steps));
+    assert.equal(task(diagnosed, c.id).status, status);
+    assert.equal(task(diagnosed, c.id).prerequisites.join(), [a.id, b.id].join());
+    assert.equal(task(diagnosed, c.id).unblockedBy, undefined);
+    assert.equal(task(diagnosed, a.id).unblockedBy, undefined);
+    assert.equal(task(diagnosed, b.id).unblockedBy, undefined);
+  }
 });
 
 test('reports missing, ineligible and eligible assignments from fixtures', () => {

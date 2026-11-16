@@ -1,19 +1,30 @@
 import type { MissionPlan } from './plan';
-import { createMissionPreview, nextMissionTransition, stepMissionPreview } from './preview';
-import type { MissionPreviewState } from './preview';
+import { createMissionPreview, nextMissionTransition, resetMissionPreview, stepMissionPreview } from './preview';
+import type { MissionPreviewState, PreviewEvent } from './preview';
 
 export { diagnoseAssignments } from './preview';
 
 export function diagnoseMission(state: MissionPreviewState) {
-  const completions = state.events.filter(({ type }) => type === 'completed').reverse();
+  const unblockedBy = new Map<string, PreviewEvent>();
+  if (state.events.length > 0) {
+    let before = resetMissionPreview(state);
+    for (let step = 0; step < state.events.length; step++) {
+      const after = stepMissionPreview(before);
+      const event = after.events[step];
+      if (event?.type === 'completed') {
+        const blocked = new Set(before.tasks.filter(({ status }) => status === 'Blocked').map(({ id }) => id));
+        for (const { id, status } of after.tasks) {
+          if (status === 'Ready' && blocked.has(id)) unblockedBy.set(id, event);
+        }
+      }
+      before = after;
+    }
+  }
   const tasks = state.tasks.map((task) => {
     const prerequisites = state.tasks.filter(({ id }) =>
       state.input.plan.edges.some(({ prerequisiteId, dependentId }) =>
         dependentId === task.id && prerequisiteId === id)).map(({ id }) => id);
-    const unblockedBy = task.unmet.length === 0
-      ? completions.find(({ taskId }) => prerequisites.includes(taskId))
-      : undefined;
-    return { ...task, prerequisites, unblockedBy, agentId: state.input.assignments[task.id] };
+    return { ...task, prerequisites, unblockedBy: unblockedBy.get(task.id), agentId: state.input.assignments[task.id] };
   });
   return {
     tasks,
