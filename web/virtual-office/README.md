@@ -751,3 +751,24 @@ With the guarded build served on loopback, run
 `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission`.
 Use the existing Playwright setup above for Firefox and WebKit. The
 `all` mode includes the C12, C13 and C14 journeys.
+
+### C15 hypothetical mission preview
+
+From **Plan a mission**, choose Plan B tasks and prerequisites. Select an
+eligible proposed agent for each task that still needs simulated work.
+Choose **Start preview** to capture those inputs. **Step preview** starts the
+first ready task in fixture order or completes the active task, emitting one
+hypothetical event per step. Tasks already assumed complete emit no events.
+Inspect task states, unmet prerequisites, proposed agents and the result
+against the captured Plan B input.
+
+**Reset preview** restores step zero from the captured input and focuses
+**Step preview**. A successful Plan B edit clears the captured preview.
+Plan A-only edits and rejected edits preserve it. **Reset mission** clears
+all planning state. Leaving or reloading the route ends the draft session.
+Playback uses its own controls and never consumes the preview events.
+
+With the guarded build served on loopback and the existing Playwright setup,
+run `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-preview`.
+Firefox uses the documented macOS workaround. The `all` mode includes this
+journey and the C12–C14 regressions.
