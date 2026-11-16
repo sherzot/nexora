@@ -772,3 +772,27 @@ With the guarded build served on loopback and the existing Playwright setup,
 run `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-preview`.
 Firefox uses the documented macOS workaround. The `all` mode includes this
 journey and the C12–C14 regressions.
+
+### C16 hypothetical mission diagnostics
+
+On **Mission Planning**, select a task in **Mission diagnostics** to inspect
+its proposed assignment, fixture eligibility, and prerequisites. After
+starting the preview, inspect blockers, the next transition, and the
+hypothetical step that satisfied a final prerequisite. Fixture order breaks
+ties among ready tasks. The preview uses serial transitions and does not
+model agent availability or capacity.
+
+Capture **Variant A** and **Variant B** from the editable Plan B. Each capture
+starts at step zero and holds its own tasks, prerequisites, assumptions, and
+assignments. Compare inputs, event order and attribution, logical step counts,
+and terminal states. Logical steps do not measure elapsed time. C14's
+**Plan A** remains the separate structural comparison reference.
+
+Draft edits and **Reset preview** preserve captured variants. **Reset mission**,
+route exit, and reload clear them. Playback controls remain independent, and
+preview events are hypothetical throughout.
+
+With the guarded build served on loopback, run
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-diagnostics`.
+Use the existing Playwright setup and Firefox macOS workaround above.
+The `all` mode also includes this journey.

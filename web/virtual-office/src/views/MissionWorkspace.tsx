@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { MissionDiagnostics } from '../mission/MissionDiagnostics';
+import { captureMissionVariant } from '../mission/diagnostics';
 import { MissionPreview } from '../mission/MissionPreview';
 import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
 import type { MissionPreviewState } from '../mission/preview';
@@ -34,6 +36,9 @@ export function MissionWorkspace() {
   const [prerequisiteId, setPrerequisite] = useState('');
   const [assignments, setAssignments] = useState<Readonly<Record<string, string>>>({});
   const [preview, setPreview] = useState<MissionPreviewState>();
+  const [diagnosticTask, setDiagnosticTask] = useState('');
+  const [variants, setVariants] = useState<Partial<Record<'A' | 'B', MissionPreviewState['input']>>>({});
+  const applicableAssumptions = assumptions.filter((id) => draft.taskIds.includes(id));
   const [notice, setNotice] = useState('');
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
@@ -135,6 +140,7 @@ export function MissionWorkspace() {
         chooser.current?.focus();
         setDraft(empty); setAssumptions([]); setReference(undefined);
         setAssignments({}); setPreview(undefined);
+        setDiagnosticTask(''); setVariants({});
         setDependent(''); setPrerequisite(''); setNotice('Mission reset.');
       }}>Reset mission</button>
     </div>
@@ -173,7 +179,7 @@ export function MissionWorkspace() {
       </label>)}</div>
       <button type="button" className="text-button" onClick={() => {
         try {
-          setPreview(createMissionPreview(draft, assumptions.filter((id) => draft.taskIds.includes(id)), assignments));
+          setPreview(createMissionPreview(draft, applicableAssumptions, assignments));
           setNotice('Hypothetical mission preview started at step zero.');
         } catch (error) {
           setNotice(error instanceof Error ? error.message : 'Cannot start mission preview.');
@@ -186,5 +192,21 @@ export function MissionWorkspace() {
         setPreview((state) => state && resetMissionPreview(state));
         setNotice('Mission preview reset to step zero.');
       }} />}
+    <MissionDiagnostics
+      input={{ plan: draft, assumptions: applicableAssumptions, assignments }}
+      preview={preview}
+      selectedId={diagnosticTask}
+      onSelect={setDiagnosticTask}
+      variantA={variants.A}
+      variantB={variants.B}
+      onCapture={(slot) => {
+        try {
+          const captured = captureMissionVariant(draft, applicableAssumptions, assignments);
+          setVariants((previous) => ({ ...previous, [slot]: captured }));
+          setNotice(`Captured Variant ${slot} from editable Plan B at step zero.`);
+        } catch (error) {
+          setNotice(error instanceof Error ? error.message : 'Cannot capture mission variant.');
+        }
+      }} />
   </>;
 }
