@@ -1,4 +1,8 @@
 import { useRef, useState } from 'react';
+import { MissionPreview } from '../mission/MissionPreview';
+import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
+import type { MissionPreviewState } from '../mission/preview';
+import { findAgent } from '../demo/selectors';
 import { tasks } from '../demo/fixtures';
 import { comparePlans, evaluatePlan, validatePlan } from '../mission/plan';
 import type { MissionPlan } from '../mission/plan';
@@ -28,6 +32,8 @@ export function MissionWorkspace() {
   const [reference, setReference] = useState<MissionPlan>();
   const [dependentId, setDependent] = useState('');
   const [prerequisiteId, setPrerequisite] = useState('');
+  const [assignments, setAssignments] = useState<Readonly<Record<string, string>>>({});
+  const [preview, setPreview] = useState<MissionPreviewState>();
   const [notice, setNotice] = useState('');
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
@@ -36,19 +42,25 @@ export function MissionWorkspace() {
   const evaluation = evaluatePlan(draft, assumptions.filter((id) => draft.taskIds.includes(id)), catalog);
   const comparison = reference && comparePlans(reference, draft, assumptions, catalog);
 
+  function invalidatePreview(message = '') {
+    if (preview) setPreview(undefined);
+    setNotice([message, preview ? 'Preview cleared because Plan B changed.' : ''].filter(Boolean).join(' '));
+  }
+
   function toggleTask(id: string, checked: boolean) {
     if (checked) {
       setDraft({ ...draft, taskIds: [...draft.taskIds, id] });
-      setNotice('');
+      invalidatePreview();
       return;
     }
     const edges = draft.edges.filter((edge) => edge.dependentId !== id && edge.prerequisiteId !== id);
     setDraft({ taskIds: draft.taskIds.filter((taskId) => taskId !== id), edges });
+    setAssignments(Object.fromEntries(Object.entries(assignments).filter(([taskId]) => taskId !== id)));
     const retainedByReference = reference?.taskIds.includes(id);
     if (!retainedByReference) setAssumptions(assumptions.filter((taskId) => taskId !== id));
     if (dependentId === id) setDependent('');
     if (prerequisiteId === id) setPrerequisite('');
-    setNotice(`Removed ${title(id)}, ${draft.edges.length - edges.length} prerequisites from Plan B.${retainedByReference ? ' Its assumption remains editable for Plan A.' : ''}`);
+    invalidatePreview(`Removed ${title(id)}, ${draft.edges.length - edges.length} prerequisites from Plan B.${retainedByReference ? ' Its assumption remains editable for Plan A.' : ''}`);
   }
 
   return <>
@@ -72,7 +84,7 @@ export function MissionWorkspace() {
         const error = validatePlan(next, catalog);
         if (error) { setNotice(error); return; }
         setDraft(next);
-        setNotice(`${title(dependentId)} requires ${title(prerequisiteId)}.`);
+        invalidatePreview(`${title(dependentId)} requires ${title(prerequisiteId)}.`);
       }}>
         <label>Dependent task<select ref={dependent} value={dependentId} onChange={(event) => setDependent(event.target.value)}>
           <option value="">Choose task</option>{selected.map(({ id, title }) => <option key={id} value={id}>{title}</option>)}
@@ -88,7 +100,7 @@ export function MissionWorkspace() {
           <button type="button" className="text-button" aria-label={`Remove prerequisite: ${description}`} onClick={() => {
             dependent.current?.focus();
             setDraft({ ...draft, edges: draft.edges.filter((item) => item !== edge) });
-            setNotice(`Removed prerequisite: ${description}.`);
+            invalidatePreview(`Removed prerequisite: ${description}.`);
           }}>Remove</button>
         </li>;
       })}</ul>
@@ -102,7 +114,8 @@ export function MissionWorkspace() {
           const error = check?.reference.error ? `Plan A: ${check.reference.error}` : draftError && `Plan B: ${draftError}`;
           if (event.target.checked && error) { setNotice(error); return; }
           setAssumptions(next);
-          setNotice('');
+          if (draft.taskIds.includes(id)) invalidatePreview();
+          else setNotice('');
         }} /> Assume complete: {title}{reference && (reference.taskIds.includes(id)
           ? draft.taskIds.includes(id) ? ' (Plan A and Plan B)' : ' (Plan A only)'
           : ' (Plan B only)')}
@@ -121,6 +134,7 @@ export function MissionWorkspace() {
       <button type="button" className="text-button" onClick={() => {
         chooser.current?.focus();
         setDraft(empty); setAssumptions([]); setReference(undefined);
+        setAssignments({}); setPreview(undefined);
         setDependent(''); setPrerequisite(''); setNotice('Mission reset.');
       }}>Reset mission</button>
     </div>
@@ -140,5 +154,37 @@ export function MissionWorkspace() {
           </section>)}
       </div>
     </section>}
+    <fieldset className="content-section"><legend>Proposed agent assignments</legend>
+      <p>Choose one eligible fixture agent per task that needs simulated work.</p>
+      <div className="filter-bar">{selected.map(({ id, title: name, agentIds }) => <label key={id}>
+        Proposed agent for {name}<select value={assignments[id] ?? ''} onChange={(event) => {
+          const agentId = event.target.value;
+          if (agentId && !agentIds.some((eligible) => eligible === agentId)) return;
+          if (agentId === (assignments[id] ?? '')) return;
+          const next = { ...assignments };
+          if (agentId) next[id] = agentId;
+          else delete next[id];
+          setAssignments(next);
+          invalidatePreview();
+        }}>
+          <option value="">Choose agent</option>
+          {agentIds.map((agentId) => <option key={agentId} value={agentId}>{findAgent(agentId)?.name}</option>)}
+        </select>
+      </label>)}</div>
+      <button type="button" className="text-button" onClick={() => {
+        try {
+          setPreview(createMissionPreview(draft, assumptions.filter((id) => draft.taskIds.includes(id)), assignments));
+          setNotice('Hypothetical mission preview started at step zero.');
+        } catch (error) {
+          setNotice(error instanceof Error ? error.message : 'Cannot start mission preview.');
+        }
+      }}>Start preview</button>
+    </fieldset>
+    {preview && <MissionPreview state={preview}
+      onStep={() => setPreview((state) => state && stepMissionPreview(state))}
+      onReset={() => {
+        setPreview((state) => state && resetMissionPreview(state));
+        setNotice('Mission preview reset to step zero.');
+      }} />}
   </>;
 }

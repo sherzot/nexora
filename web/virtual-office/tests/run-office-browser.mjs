@@ -8,6 +8,7 @@ import simulation from './simulation-browser.mjs';
 import analytics from './analytics-browser.mjs';
 import collaboration from './collaboration-browser.mjs';
 import resize from './office-resize-browser.mjs';
+import missionPreview from './office-mission-preview-browser.mjs';
 import mission from './office-mission-journey-browser.mjs';
 import coordination from './office-coordination-journey-browser.mjs';
 import journey from './office-product-journey-browser.mjs';
@@ -41,8 +42,8 @@ async function run(browser) {
     if (mode === 'all' && !cameraSuites.length) {
       console.log(JSON.stringify({ engine, suite: experience.name, status: 'NOT RUN', reason: 'Requires Chromium CDP screenshots' }));
     }
-    const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize, journey, coordination, mission]
-      : mode === 'mission' ? [mission] : mode === 'coordination' ? [coordination] : mode === 'journey' ? [journey] : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];
+    const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize, journey, coordination, mission, missionPreview]
+      : mode === 'mission-preview' ? [missionPreview] : mode === 'mission' ? [mission] : mode === 'coordination' ? [coordination] : mode === 'journey' ? [journey] : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];
     const identity = { engine, version: browser.version(), registeredExecutable, executableOverride: override,
       platform: process.platform, architecture: process.arch };
     const fail = (phase, error, suite) => {
