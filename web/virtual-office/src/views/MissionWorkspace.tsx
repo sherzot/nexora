@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { MissionReadiness } from '../mission/MissionReadiness';
+import { createDecisionSummary } from '../mission/readiness';
 import { MissionDiagnostics } from '../mission/MissionDiagnostics';
 import { captureMissionVariant } from '../mission/diagnostics';
 import { MissionPreview } from '../mission/MissionPreview';
@@ -39,6 +41,8 @@ export function MissionWorkspace() {
   const [diagnosticTask, setDiagnosticTask] = useState('');
   const [variants, setVariants] = useState<Partial<Record<'A' | 'B', MissionPreviewState['input']>>>({});
   const applicableAssumptions = assumptions.filter((id) => draft.taskIds.includes(id));
+  const input = { plan: draft, assumptions: applicableAssumptions, assignments };
+  const decision = createDecisionSummary(input, variants.A, variants.B);
   const [notice, setNotice] = useState('');
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
@@ -192,8 +196,10 @@ export function MissionWorkspace() {
         setPreview((state) => state && resetMissionPreview(state));
         setNotice('Mission preview reset to step zero.');
       }} />}
+    <MissionReadiness report={decision.draft} limitations={decision.limitations} />
     <MissionDiagnostics
-      input={{ plan: draft, assumptions: applicableAssumptions, assignments }}
+      input={input}
+      comparison={decision.comparison}
       preview={preview}
       selectedId={diagnosticTask}
       onSelect={setDiagnosticTask}

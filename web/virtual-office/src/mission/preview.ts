@@ -53,23 +53,43 @@ export function nextMissionTransition(state: MissionPreviewState) {
     : { taskId: task.id, type: 'started', reason: 'fixture-order' } as const;
 }
 
-export function createMissionPreview(plan: MissionPlan, assumptions: readonly string[], assignments: Readonly<Record<string, string>>): MissionPreviewState {
-  if (!plan.taskIds.length) throw new Error('Select at least one task before starting the preview.');
+export type ConfigurationIssue = {
+  code: 'empty-plan' | 'plan-validation' | 'missing-assignment' | 'invalid-assignment' | 'assignment-outside-plan';
+  taskId?: string;
+  message: string;
+  source: 'plan-input' | 'fixture-eligibility';
+};
+
+export function validateMissionPreviewInput(plan: MissionPlan, assumptions: readonly string[], assignments: Readonly<Record<string, string>>) {
+  const issues: ConfigurationIssue[] = [];
+  if (!plan.taskIds.length) {
+    issues.push({ code: 'empty-plan', message: 'Select at least one task before starting the preview.', source: 'plan-input' });
+  }
   const evaluation = evaluatePlan(plan, assumptions, catalog);
-  if (evaluation.error) throw new Error(evaluation.error);
+  if (evaluation.error) {
+    issues.push({ code: 'plan-validation', message: evaluation.error, source: 'plan-input' });
+  }
   const diagnostics = diagnoseAssignments(plan, assumptions, assignments);
+  const byTask = new Map<string, typeof diagnostics[number]>(diagnostics.map((assignment) => [assignment.taskId, assignment]));
   for (const id of Object.keys(assignments)) {
-    const assignment = diagnostics.find(({ taskId }) => taskId === id);
-    if (!assignment) throw new Error('Assignments must refer to selected tasks.');
-    if (assignment.status === 'invalid') {
-      throw new Error(`Select an eligible proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`);
+    const assignment = byTask.get(id);
+    if (!assignment) {
+      issues.push({ code: 'assignment-outside-plan', taskId: id, message: 'Assignments must refer to selected tasks.', source: 'plan-input' });
+    } else if (assignment.status === 'invalid') {
+      issues.push({ code: 'invalid-assignment', taskId: id, message: `Select an eligible proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`, source: 'fixture-eligibility' });
     }
   }
-  for (const id of plan.taskIds) {
-    if (diagnostics.find(({ taskId }) => taskId === id)?.status === 'missing') {
-      throw new Error(`Choose a proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`);
+  for (const id of new Set(plan.taskIds)) {
+    if (byTask.get(id)?.status === 'missing') {
+      issues.push({ code: 'missing-assignment', taskId: id, message: `Choose a proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`, source: 'fixture-eligibility' });
     }
   }
+  return { issues, evaluation, assignments: diagnostics };
+}
+
+export function createMissionPreview(plan: MissionPlan, assumptions: readonly string[], assignments: Readonly<Record<string, string>>): MissionPreviewState {
+  const { issues, evaluation } = validateMissionPreviewInput(plan, assumptions, assignments);
+  if (issues.length) throw new Error(issues[0].message);
   const states: PreviewTask[] = evaluation.tasks.map(({ id, status, unmet }) => ({
     id, status: status === 'Assumed complete' ? status : unmet.length ? 'Blocked' : 'Ready', unmet,
   }));

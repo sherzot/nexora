@@ -796,3 +796,28 @@ With the guarded build served on loopback, run
 `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-diagnostics`.
 Use the existing Playwright setup and Firefox macOS workaround above.
 The `all` mode also includes this journey.
+
+### C17 synthetic planning readiness and what-if analysis
+
+Open **Mission Planning** to inspect **Synthetic Planning Readiness** for
+editable Plan B. An empty plan or missing required assignment is incomplete.
+Graph, assumption, or assignment violations make the configuration invalid.
+A valid configuration can include initially blocked tasks. Readiness describes
+whether the synthetic plan can be previewed.
+
+Capture **Variant A** as the baseline, change Plan B, and capture **Variant B**
+as the alternative. The what-if comparison uses the existing deterministic
+hypothetical preview to compare input changes, blockers and assumptions,
+transition order and attribution, and terminal outcomes. An eligible assignment
+change alone affects attribution while preserving transition order and count.
+Logical steps are transition counts. The model does not evaluate real agent
+availability, capacity, elapsed time, or operational authorization.
+
+C14 Plan A remains the separate structural reference. Draft edits and preview
+reset preserve captured variants. Mission reset, route exit, and reload clear
+them. Playback controls do not change the draft or captured variants.
+
+With the guarded build served on loopback, run
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-readiness`.
+The `all` mode includes this journey. Use the existing Playwright setup and
+the documented macOS workaround for Firefox.
