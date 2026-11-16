@@ -11,7 +11,7 @@ interface PreviewTask {
   readonly unmet: readonly string[];
 }
 
-interface PreviewEvent {
+export interface PreviewEvent {
   readonly step: number;
   readonly taskId: string;
   readonly agentId: string;
@@ -32,19 +32,41 @@ export interface MissionPreviewState {
 
 const complete = (status: Status) => status === 'Completed' || status === 'Assumed complete';
 
+export function diagnoseAssignments(plan: MissionPlan, assumptions: readonly string[], assignments: Readonly<Record<string, string>>) {
+  return fixtures.filter(({ id }) => plan.taskIds.includes(id)).map(({ id, agentIds }) => {
+    const assigned = Object.hasOwn(assignments, id);
+    const agentId = assigned ? assignments[id] : undefined;
+    const status = !assigned
+      ? assumptions.includes(id) ? 'not-required' : 'missing'
+      : agentIds.some((eligible) => eligible === agentId) ? 'eligible' : 'invalid';
+    return { taskId: id, agentId, eligibleAgentIds: agentIds, status } as const;
+  });
+}
+
+export function nextMissionTransition(state: MissionPreviewState) {
+  if (state.terminal) return undefined;
+  const task = state.tasks.find(({ status }) => status === 'Active')
+    ?? state.tasks.find(({ status }) => status === 'Ready');
+  if (!task) throw new Error('A non-terminal mission preview must have an active or ready task.');
+  return task.status === 'Active'
+    ? { taskId: task.id, type: 'completed', reason: 'active' } as const
+    : { taskId: task.id, type: 'started', reason: 'fixture-order' } as const;
+}
+
 export function createMissionPreview(plan: MissionPlan, assumptions: readonly string[], assignments: Readonly<Record<string, string>>): MissionPreviewState {
   if (!plan.taskIds.length) throw new Error('Select at least one task before starting the preview.');
   const evaluation = evaluatePlan(plan, assumptions, catalog);
   if (evaluation.error) throw new Error(evaluation.error);
-  for (const [id, agent] of Object.entries(assignments)) {
-    const fixture = fixtures.find((task) => task.id === id);
-    if (!fixture || !plan.taskIds.includes(id)) throw new Error('Assignments must refer to selected tasks.');
-    if (!fixture.agentIds.some((eligible) => eligible === agent)) {
-      throw new Error(`Select an eligible proposed agent for ${fixture.title}.`);
+  const diagnostics = diagnoseAssignments(plan, assumptions, assignments);
+  for (const id of Object.keys(assignments)) {
+    const assignment = diagnostics.find(({ taskId }) => taskId === id);
+    if (!assignment) throw new Error('Assignments must refer to selected tasks.');
+    if (assignment.status === 'invalid') {
+      throw new Error(`Select an eligible proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`);
     }
   }
   for (const id of plan.taskIds) {
-    if (!assumptions.includes(id) && !Object.hasOwn(assignments, id)) {
+    if (diagnostics.find(({ taskId }) => taskId === id)?.status === 'missing') {
       throw new Error(`Choose a proposed agent for ${fixtures.find((task) => task.id === id)!.title}.`);
     }
   }
@@ -63,12 +85,11 @@ export function createMissionPreview(plan: MissionPlan, assumptions: readonly st
 }
 
 export function stepMissionPreview(state: MissionPreviewState): MissionPreviewState {
-  if (state.terminal) return state;
-  const task = state.tasks.find(({ status }) => status === 'Active')
-    ?? state.tasks.find(({ status }) => status === 'Ready');
-  if (!task) throw new Error('A non-terminal mission preview must have an active or ready task.');
-  const completing = task.status === 'Active';
-  const advanced: PreviewTask[] = state.tasks.map((current) => current.id === task.id
+  const transition = nextMissionTransition(state);
+  if (!transition) return state;
+  const { taskId, type } = transition;
+  const completing = type === 'completed';
+  const advanced: PreviewTask[] = state.tasks.map((current) => current.id === taskId
     ? { ...current, status: completing ? 'Completed' : 'Active' } : current);
   const completed = new Set(advanced.filter(({ status }) => complete(status)).map(({ id }) => id));
   const next = completing ? advanced.map((current): PreviewTask => {
@@ -81,8 +102,8 @@ export function stepMissionPreview(state: MissionPreviewState): MissionPreviewSt
     tasks: next,
     terminal: next.every(({ status }) => complete(status)),
     events: [...state.events, {
-      step: state.events.length + 1, taskId: task.id, agentId: state.input.assignments[task.id],
-      type: completing ? 'completed' : 'started', provenance: 'hypothetical',
+      step: state.events.length + 1, taskId, agentId: state.input.assignments[taskId],
+      type, provenance: 'hypothetical',
     }],
   };
 }
