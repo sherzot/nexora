@@ -40,7 +40,7 @@ export function captureMissionVariant(plan: MissionPlan, assumptions: readonly s
   return createMissionPreview(plan, assumptions, assignments).input;
 }
 
-function replayVariant(input: MissionVariant): MissionPreviewState {
+export function replayVariant(input: MissionVariant): MissionPreviewState {
   let state = createMissionPreview(input.plan, input.assumptions, input.assignments);
   while (!state.terminal) state = stepMissionPreview(state);
   return state;
@@ -57,8 +57,12 @@ function equalSequence(left: readonly string[], right: readonly string[]): boole
 }
 
 export function compareMissionVariants(a: MissionVariant, b: MissionVariant) {
-  const left = replayVariant(a);
-  const right = replayVariant(b);
+  return compareReplayedVariants(replayVariant(a), replayVariant(b));
+}
+
+export function compareReplayedVariants(left: MissionPreviewState, right: MissionPreviewState) {
+  const a = left.input;
+  const b = right.input;
   const dependencies = ({ plan }: MissionVariant) => plan.edges.map(({ prerequisiteId, dependentId }) => JSON.stringify([prerequisiteId, dependentId]));
   const assignments = (input: MissionVariant) => Object.entries(input.assignments).map((assignment) => JSON.stringify(assignment));
   const eventOrder = ({ events }: MissionPreviewState) => events.map(({ taskId, type }) => JSON.stringify([taskId, type]));

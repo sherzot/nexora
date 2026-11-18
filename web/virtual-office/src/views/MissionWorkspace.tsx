@@ -2,7 +2,9 @@ import { useRef, useState } from 'react';
 import { MissionReadiness } from '../mission/MissionReadiness';
 import { createDecisionSummary } from '../mission/readiness';
 import { MissionDiagnostics } from '../mission/MissionDiagnostics';
-import { captureMissionVariant } from '../mission/diagnostics';
+import { MissionDecision } from '../mission/MissionDecision';
+import { captureScenario, emptyScenarioCollection, removeScenario } from '../mission/scenarios';
+import type { DecisionRecord, PlanningCriterion, ScenarioSlot } from '../mission/scenarios';
 import { MissionPreview } from '../mission/MissionPreview';
 import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
 import type { MissionPreviewState } from '../mission/preview';
@@ -39,10 +41,12 @@ export function MissionWorkspace() {
   const [assignments, setAssignments] = useState<Readonly<Record<string, string>>>({});
   const [preview, setPreview] = useState<MissionPreviewState>();
   const [diagnosticTask, setDiagnosticTask] = useState('');
-  const [variants, setVariants] = useState<Partial<Record<'A' | 'B', MissionPreviewState['input']>>>({});
+  const [scenarios, setScenarios] = useState(emptyScenarioCollection);
+  const [criteria, setCriteria] = useState<readonly PlanningCriterion[]>([]);
+  const [preference, setPreference] = useState<DecisionRecord>();
   const applicableAssumptions = assumptions.filter((id) => draft.taskIds.includes(id));
   const input = { plan: draft, assumptions: applicableAssumptions, assignments };
-  const decision = createDecisionSummary(input, variants.A, variants.B);
+  const decision = createDecisionSummary(input, scenarios.slots.A?.input, scenarios.slots.B?.input);
   const [notice, setNotice] = useState('');
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
@@ -50,6 +54,21 @@ export function MissionWorkspace() {
   const assumptionTasks = tasks.filter(({ id }) => draft.taskIds.includes(id) || reference?.taskIds.includes(id));
   const evaluation = evaluatePlan(draft, assumptions.filter((id) => draft.taskIds.includes(id)), catalog);
   const comparison = reference && comparePlans(reference, draft, assumptions, catalog);
+
+  function clearPreference(message: string) {
+    setPreference(undefined);
+    setNotice(preference ? message + ' Local preference cleared because its evidence changed.' : message);
+  }
+
+  function capture(slot: ScenarioSlot) {
+    const result = captureScenario(scenarios, slot, scenarios.lastRevision + 1, input);
+    if (!result.ok) {
+      setNotice(result.issues[0]?.message ?? 'Cannot capture this scenario.');
+      return;
+    }
+    setScenarios(result.collection);
+    clearPreference(`Captured Scenario ${slot} from editable Plan B at step zero.`);
+  }
 
   function invalidatePreview(message = '') {
     if (preview) setPreview(undefined);
@@ -144,7 +163,7 @@ export function MissionWorkspace() {
         chooser.current?.focus();
         setDraft(empty); setAssumptions([]); setReference(undefined);
         setAssignments({}); setPreview(undefined);
-        setDiagnosticTask(''); setVariants({});
+        setDiagnosticTask(''); setScenarios(emptyScenarioCollection); setCriteria([]); setPreference(undefined);
         setDependent(''); setPrerequisite(''); setNotice('Mission reset.');
       }}>Reset mission</button>
     </div>
@@ -203,16 +222,22 @@ export function MissionWorkspace() {
       preview={preview}
       selectedId={diagnosticTask}
       onSelect={setDiagnosticTask}
-      variantA={variants.A}
-      variantB={variants.B}
-      onCapture={(slot) => {
-        try {
-          const captured = captureMissionVariant(draft, applicableAssumptions, assignments);
-          setVariants((previous) => ({ ...previous, [slot]: captured }));
-          setNotice(`Captured Variant ${slot} from editable Plan B at step zero.`);
-        } catch (error) {
-          setNotice(error instanceof Error ? error.message : 'Cannot capture mission variant.');
-        }
+      variantA={scenarios.slots.A?.input}
+      variantB={scenarios.slots.B?.input}
+      onCapture={capture} />
+    <MissionDecision collection={scenarios} criteria={criteria} decision={preference}
+      onCapture={capture}
+      onRemove={(slot) => {
+        setScenarios(removeScenario(scenarios, slot));
+        clearPreference(`Removed Scenario ${slot}.`);
+      }}
+      onCriteria={(next) => {
+        setCriteria(next);
+        clearPreference('Planning criteria updated.');
+      }}
+      onRecord={(record) => {
+        setPreference(record);
+        setNotice(`Recorded local preference for Scenario ${record.preferred.ref.slot}.`);
       }} />
   </>;
 }
