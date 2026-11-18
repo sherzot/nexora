@@ -140,29 +140,62 @@ test('reports trade-offs and requires one candidate to lead every occupied compa
   assert.equal(recommendCollection(allPairs(collection, criteria), collection, criteria), null);
 });
 
-test('records the exact preference and rejects stale selected or compared revisions', () => {
+test('records the exact preference, refreshes compared revisions and rejects stale selection', () => {
   let collection = capture(capture(emptyScenarioCollection, 'A'), 'B');
   const criteria = [blocked];
-  const evidence = allPairs(collection, criteria);
   const selected = collection.slots.A.ref;
-  const result = recordPreference(collection, selected, criteria, evidence, 'Keep A for local discussion.');
+  const result = recordPreference(collection, selected, criteria, 'Keep A for local discussion.');
   assert.equal(result.ok, true);
   assert.equal(result.record.preferred.ref.revision, selected.revision);
   assert.equal(result.record.provenance, 'hypothetical');
   assert.equal(result.record.rationale, 'Keep A for local discussion.');
   assert.equal(decisionInvalidation(result.record, collection, criteria), null);
   assert.equal(decisionInvalidation(result.record, collection, [edges]), 'criteria-changed');
-  assert.equal(recordPreference(collection, selected, [edges], evidence, '').ok, false);
   const added = capture(collection, 'C');
   assert.equal(decisionInvalidation(result.record, added, criteria), 'scenario-added');
-  assert.equal(recordPreference(added, selected, criteria, evidence, '').ok, false);
+  assert.equal(recordPreference(added, selected, criteria).record.evidence.length, 3);
   const removed = removeScenario(collection, 'B');
   assert.equal(decisionInvalidation(result.record, removed, criteria), 'scenario-removed');
   collection = capture(collection, 'B');
   assert.equal(decisionInvalidation(result.record, collection, criteria), 'scenario-replaced');
-  assert.equal(recordPreference(collection, selected, criteria, evidence, '').ok, false);
+  assert.equal(JSON.stringify(recordPreference(collection, selected, criteria).record.evidence), JSON.stringify(allPairs(collection, criteria)));
   collection = capture(collection, 'A');
-  assert.equal(recordPreference(collection, selected, criteria, allPairs(collection, criteria), '').ok, false);
+  assert.equal(recordPreference(collection, selected, criteria).ok, false);
   assert.equal(emptyScenarioCollection.lastRevision, 0);
   assert.equal(Object.keys(emptyScenarioCollection.slots).length, 0);
+});
+
+test('recomputes every pair and ignores extra forged or stale evidence arguments', () => {
+  const noEdges = { ...input, plan: { ...input.plan, edges: [] } };
+  let collection = capture(capture(capture(emptyScenarioCollection, 'A'), 'B'), 'C', noEdges);
+  const criteria = [blocked, edges];
+  const initialPairs = allPairs(collection, criteria);
+  collection = capture(collection, 'B', noEdges);
+  const expected = allPairs(collection, criteria);
+  const [first, ...rest] = expected;
+  for (const supplied of [
+    [{ ...first, scenario: collection.slots.A.ref }, ...rest],
+    [{ ...first, kind: 'tie' }, ...rest],
+    [{ ...first, evidence: { ...first.evidence, observations: [{ criterion: blocked, left: 99, right: 99 }] } }, ...rest],
+    [first, first, ...rest.slice(1)],
+    rest,
+    initialPairs,
+  ]) {
+    const result = recordPreference(collection, collection.slots.A.ref, [edges, blocked, blocked], '', supplied);
+    assert.equal(result.ok, true);
+    assert.equal(JSON.stringify(result.record.evidence), JSON.stringify(expected));
+  }
+});
+
+test('local preferences are independent of ties, trade-offs and withheld recommendations', () => {
+  const fanIn = { ...input, plan: { taskIds: ids, edges: [edge(a, d), edge(b, d), edge(c, d)] } };
+  const separate = { ...input, plan: { taskIds: ids, edges: [edge(a, c), edge(b, d)] } };
+  const assumed = { ...input, assumptions: ids, assignments: {} };
+  for (const [alternative, kind] of [[fanIn, 'tie'], [separate, 'trade-off'], [assumed, 'withheld']]) {
+    const collection = capture(capture(emptyScenarioCollection, 'A', fanIn), 'B', alternative);
+    const result = recordPreference(collection, collection.slots.B.ref, [blocked, edges]);
+    assert.equal(result.ok, true);
+    assert.equal(result.record.preferred.ref.slot, 'B');
+    assert.equal(result.record.evidence[0].kind, kind);
+  }
 });

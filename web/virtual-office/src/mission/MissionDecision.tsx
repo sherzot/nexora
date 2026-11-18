@@ -102,7 +102,7 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
       const data = new FormData(event.currentTarget);
       const selected = scenarios.find(({ ref }) => String(ref.revision) === data.get('preferred'));
       if (!selected) return;
-      const result = recordPreference(collection, selected.ref, criteria, pairs, String(data.get('rationale') ?? ''));
+      const result = recordPreference(collection, selected.ref, criteria, String(data.get('rationale') ?? ''));
       if (result.ok) onRecord(result.record);
     }}>
       <p>Capture at least two scenarios and select a criterion to record a preference.</p>

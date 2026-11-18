@@ -179,7 +179,6 @@ export function recordPreference(
   collection: ScenarioCollection,
   selected: ScenarioRef,
   selectedCriteria: readonly PlanningCriterion[],
-  evidence: readonly Recommendation[],
   rationale = '',
 ): PreferenceResult {
   const preferred = collection.slots[selected.slot];
@@ -188,11 +187,9 @@ export function recordPreference(
   const scenarios = occupied(collection);
   if (scenarios.length < 2 || !criteria.length) return { ok: false, reason: 'insufficient-evidence' };
   const compared = scenarios.map(({ ref }) => ref);
-  const expected = compared.length * (compared.length - 1) / 2;
-  const referencesMatch = evidence.length === expected && compared.every((a, index) =>
-    compared.slice(index + 1).every((b) => evidence.some((pair) =>
-      sameCriteria(pair.evidence.criteria, criteria) && coversPair(pair.evidence, a, b))));
-  if (!referencesMatch) return { ok: false, reason: 'stale-evidence' };
+  const evaluated = scenarios.map(evaluateScenario);
+  const evidence = evaluated.flatMap((left, index) => evaluated.slice(index + 1)
+    .map((right) => compareScenarios(left, right, criteria)));
 
   return {
     ok: true,
@@ -200,7 +197,7 @@ export function recordPreference(
       preferred,
       compared,
       criteria,
-      evidence: [...evidence],
+      evidence,
       rationale: rationale.trim(),
       limitations: scenarioLimitations,
       provenance: 'hypothetical',
