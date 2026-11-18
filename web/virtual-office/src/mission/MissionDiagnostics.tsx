@@ -1,5 +1,7 @@
+import { ReadinessDetails } from './MissionReadiness';
+import type { WhatIfComparison } from './readiness';
 import { findAgent, findTask } from '../demo/selectors';
-import { compareMissionVariants, diagnoseAssignments, diagnoseMission } from './diagnostics';
+import { diagnoseAssignments, diagnoseMission } from './diagnostics';
 import type { MissionPreviewState } from './preview';
 
 const taskName = (id: string) => findTask(id)?.title ?? id;
@@ -15,13 +17,14 @@ const explanations = {
   'Assumed complete': 'This task was assumed complete at capture and emits no events.',
 };
 
-export function MissionDiagnostics({ input, preview, selectedId, onSelect, variantA, variantB, onCapture }: {
+export function MissionDiagnostics({ input, preview, selectedId, onSelect, variantA, variantB, comparison, onCapture }: {
   input: Variant;
   preview?: MissionPreviewState;
   selectedId: string;
   onSelect: (id: string) => void;
   variantA?: Variant;
   variantB?: Variant;
+  comparison: WhatIfComparison | null;
   onCapture: (slot: 'A' | 'B') => void;
 }) {
   const assignments = diagnoseAssignments(input.plan, input.assumptions, input.assignments);
@@ -68,15 +71,30 @@ export function MissionDiagnostics({ input, preview, selectedId, onSelect, varia
         <button type="button" className="text-button" onClick={() => onCapture('B')}>Capture Variant B</button>
       </div>
       <p role="status">Variant A {variantA ? 'captured' : 'empty'} · Variant B {variantB ? 'captured' : 'empty'}</p>
-      {variantA && variantB && <VariantComparison a={variantA} b={variantB} />}
+      {comparison && <VariantComparison result={comparison} />}
     </section>
   </>;
 }
 
-function VariantComparison({ a, b }: { a: Variant; b: Variant }) {
-  const comparison = compareMissionVariants(a, b);
+function VariantComparison({ result }: { result: WhatIfComparison }) {
+  const comparison = result.outcome;
   const changed = (value: boolean) => value ? 'Changed' : 'Unchanged';
   return <>
+    <section aria-labelledby="what-if-readiness-title">
+      <h3 id="what-if-readiness-title">What-if readiness</h3>
+      <div className="analytics-charts">
+        <section aria-label="Baseline readiness"><h4>Baseline · Variant A</h4><ReadinessDetails report={result.baseline} /></section>
+        <section aria-label="Alternative readiness"><h4>Alternative · Variant B</h4><ReadinessDetails report={result.alternative} /></section>
+      </div>
+      <p>Each outcome comes from its own hypothetical trace. Differences reflect the full set of input changes.</p>
+    </section>
+    {result.assumptionFindings.length > 0 && <>
+      <h3>Assumption-sensitive findings</h3>
+      <ul>{result.assumptionFindings.map((finding) =>
+        <li key={finding.kind + finding.taskId}>{taskName(finding.taskId)} · {finding.kind === 'assumption-changed'
+          ? `Baseline ${finding.baseline ? 'assumes completion' : 'does not assume completion'}. Alternative ${finding.alternative ? 'assumes completion' : 'does not assume completion'}.`
+          : 'Assumed complete in both captures. Both traces omit its transitions.'}</li>)}</ul>
+    </>}
     <h3>Input differences</h3>
     <ul>
       <li>Task membership: {changed(comparison.membershipChanged)}</li>
@@ -101,6 +119,8 @@ function VariantComparison({ a, b }: { a: Variant; b: Variant }) {
             `${taskName(dependentId)} requires ${taskName(prerequisiteId)}`).join('; ') || 'None'}</p>
           <ul aria-label="Terminal task states">{state.tasks.map(({ id, status }) =>
             <li key={id}>{taskName(id)} · {state.input.assignments[id] ? agentName(state.input.assignments[id]) : 'No proposed agent'} · {status}</li>)}</ul>
+          {result.resolvedBlockers[label === 'Variant A' ? 'baseline' : 'alternative'].map(({ taskId, event }) =>
+            <p key={taskId}>Hypothetical step {event.step}: {taskName(event.taskId)} completed and satisfied the final unmet prerequisite for {taskName(taskId)}.</p>)}
           <p>Logical steps: {state.events.length}</p>
           <ol aria-label="Hypothetical variant events">{state.events.map(({ step, taskId, agentId, type }) =>
             <li key={step}>Step {step} · {taskName(taskId)} · {agentName(agentId)} · {type} · hypothetical</li>)}</ol>
