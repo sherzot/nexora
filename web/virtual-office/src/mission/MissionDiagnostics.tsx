@@ -67,8 +67,8 @@ export function MissionDiagnostics({ input, preview, selectedId, onSelect, varia
       <h2 id="mission-variants-title">Hypothetical variant comparison</h2>
       <p>Capture two versions of editable Plan B at step zero. These variants are separate from captured Plan A. Steps count transitions in the trace.</p>
       <div className="filter-bar">
-        <button type="button" className="text-button" onClick={() => onCapture('A')}>Capture Variant A</button>
-        <button type="button" className="text-button" onClick={() => onCapture('B')}>Capture Variant B</button>
+        <button type="button" className="text-button" id="capture-scenario-a" onClick={() => onCapture('A')}>Capture Variant A</button>
+        <button type="button" className="text-button" id="capture-scenario-b" onClick={() => onCapture('B')}>Capture Variant B</button>
       </div>
       <p role="status">Variant A {variantA ? 'captured' : 'empty'} · Variant B {variantB ? 'captured' : 'empty'}</p>
       {comparison && <VariantComparison result={comparison} />}

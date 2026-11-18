@@ -8,6 +8,7 @@ import simulation from './simulation-browser.mjs';
 import analytics from './analytics-browser.mjs';
 import collaboration from './collaboration-browser.mjs';
 import resize from './office-resize-browser.mjs';
+import missionDecision from './office-mission-decision-browser.mjs';
 import missionReadiness from './office-mission-readiness-browser.mjs';
 import missionDiagnostics from './office-mission-diagnostics-browser.mjs';
 import missionPreview from './office-mission-preview-browser.mjs';
@@ -44,7 +45,8 @@ async function run(browser) {
     if (mode === 'all' && !cameraSuites.length) {
       console.log(JSON.stringify({ engine, suite: experience.name, status: 'NOT RUN', reason: 'Requires Chromium CDP screenshots' }));
     }
-    const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize, journey, coordination, mission, missionPreview, missionDiagnostics, missionReadiness]
+    const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize, journey, coordination, mission, missionPreview, missionDiagnostics, missionReadiness, missionDecision]
+      : mode === 'mission-decision' ? [missionDecision]
       : mode === 'mission-readiness' ? [missionReadiness]
       : mode === 'mission-diagnostics' ? [missionDiagnostics]
       : mode === 'mission-preview' ? [missionPreview] : mode === 'mission' ? [mission] : mode === 'coordination' ? [coordination] : mode === 'journey' ? [journey] : mode === 'benchmark' ? [benchmark] : mode === 'resize' ? [resize] : [reliability];

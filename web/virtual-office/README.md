@@ -821,3 +821,32 @@ With the guarded build served on loopback, run
 `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-readiness`.
 The `all` mode includes this journey. Use the existing Playwright setup and
 the documented macOS workaround for Firefox.
+
+### C18 Mission Decision
+
+Capture validated Plan B inputs in Variant A, Variant B, and Scenario C.
+Variant A and B still feed the existing readiness comparison. Each slot
+holds an independent hypothetical snapshot. Capturing a replacement or
+removing a scenario leaves the editable draft and other captures intact.
+
+In **Mission Decision**, select one or both structural comparison criteria.
+Recommendations describe fewer initially blocked tasks or fewer direct
+prerequisite relationships under the selected criteria. Comparisons
+with different task membership or assumptions show evidence without a
+recommendation. Equal observations tie and conflicting criteria show a
+trade-off. A collection recommendation requires the same scenario to
+be favored in each comparison against another occupied slot.
+
+Choose a preferred scenario, optionally enter a rationale, and record the
+local preference. It binds to the exact capture and comparison evidence.
+Scenario or criterion changes clear that preference. Plan B edits,
+playback changes, and Reset Preview preserve the captures. Reset Mission,
+navigation away, and reload end the local session. Preferences are
+hypothetical and carry no approval or execution authority.
+
+With the guarded build served on loopback, run the model tests with
+`node --no-addons tests/mission-scenarios.test.mjs` and the browser
+journey with
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-decision`.
+The `all` mode includes this journey. Use the existing Playwright setup and
+the documented Firefox macOS workaround.
