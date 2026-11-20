@@ -65,6 +65,12 @@ export function MissionDiagnostics({ input, preview, selectedId, onSelect, varia
     </section>
     <section className="content-section" aria-labelledby="mission-variants-title">
       <h2 id="mission-variants-title">Hypothetical variant comparison</h2>
+      <button type="button" className="text-button" onClick={() => {
+        const heading = document.getElementById('mission-decision-title');
+        heading?.focus({ preventScroll: true });
+        heading?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      }}>Go to scenario decisions</button>
+      <p>Variant A fills Scenario A and Variant B fills Scenario B. Their inputs remain captured while you edit Plan B. Plan A is the separate structural reference.</p>
       <p>Capture two versions of editable Plan B at step zero. These variants are separate from captured Plan A. Steps count transitions in the trace.</p>
       <div className="filter-bar">
         <button type="button" className="text-button" id="capture-scenario-a" onClick={() => onCapture('A')}>Capture Variant A</button>

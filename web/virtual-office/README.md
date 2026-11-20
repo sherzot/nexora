@@ -850,3 +850,26 @@ journey with
 `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-decision`.
 The `all` mode includes this journey. Use the existing Playwright setup and
 the documented Firefox macOS workaround.
+
+### C19 mission navigation
+
+Use Mission sections to move keyboard focus to Configure, Readiness,
+Preview & Diagnostics, or Decision. These destinations remain available
+throughout the session. Navigation keeps the mission route and browser
+history intact.
+
+Plan B is the editable draft. Plan A is its structural reference.
+Variant A/B fill Scenario A/B in the same three-slot collection.
+Use Go to scenario decisions and Go to A/B capture controls to move
+between capture and comparison. View recorded evidence opens the
+current local preference's comparison evidence.
+
+Draft edits and Reset Preview preserve captures and the recorded local
+preference. Capture changes or criteria changes clear the preference.
+Reset Mission, leaving the route, and reload clear the local session.
+All results remain hypothetical and confer no operational authority.
+
+With the guarded build served on loopback, run
+`node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-decision`.
+Run the same mode in Firefox and WebKit with the documented platform
+conventions, then run `all` for integrated verification.
