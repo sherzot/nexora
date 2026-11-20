@@ -17,7 +17,7 @@ import { test } from 'node:test';
 
 const {
   emptyScenarioCollection, captureScenario, removeScenario, evaluateScenario,
-  compareScenarios, recommendCollection, recordPreference, decisionInvalidation,
+  compareScenarios, recommendCollection, recordPreference, decisionInvalidation, prepareScenarioDraft,
 } = load('mission/scenarios.ts');
 const { tasks } = load('demo/fixtures.ts');
 const [a, b, c, d] = tasks;
@@ -198,4 +198,46 @@ test('local preferences are independent of ties, trade-offs and withheld recomme
     assert.equal(result.record.preferred.ref.slot, 'B');
     assert.equal(result.record.evidence[0].kind, kind);
   }
+});
+
+
+test('prepares detached draft inputs without consuming revisions or mutating evidence', () => {
+  const collection = capture(emptyScenarioCollection, 'A');
+  const before = JSON.stringify(collection);
+  const result = prepareScenarioDraft(collection, collection.slots.A.ref, undefined, []);
+  assert.equal(result.ok, true);
+  result.input.plan.taskIds.pop();
+  result.input.plan.edges[0].dependentId = a.id;
+  result.input.assignments[a.id] = 'changed';
+  result.input.assumptions.push(a.id);
+  result.assumptions.push(b.id);
+  assert.equal(JSON.stringify(collection), before);
+  for (const ref of [{ slot: 'B', revision: 1 }, { slot: 'A', revision: 99 }]) {
+    assert.equal(prepareScenarioDraft(collection, ref, undefined, []).ok, false);
+  }
+  assert.equal(prepareScenarioDraft(removeScenario(collection, 'A'), collection.slots.A.ref, undefined, []).ok, false);
+});
+
+test('retains Plan A-only assumptions and uses loaded assumptions on shared tasks', () => {
+  const loaded = { plan: { taskIds: [a.id, b.id], edges: [] }, assumptions: [a.id], assignments: input.assignments };
+  loaded.assignments = { [a.id]: input.assignments[a.id], [b.id]: input.assignments[b.id] };
+  const collection = capture(emptyScenarioCollection, 'A', loaded);
+  const reference = { taskIds: [a.id, c.id], edges: [] };
+  const before = JSON.stringify({ collection, reference });
+  const result = prepareScenarioDraft(collection, collection.slots.A.ref, reference, [c.id, b.id]);
+  assert.equal(result.ok, true);
+  assert.equal(result.assumptions.join(), [a.id, c.id].join());
+  assert.equal(JSON.stringify({ collection, reference }), before);
+});
+
+test('rejects loaded shared assumptions conflicting with Plan A before applying any values', () => {
+  const value = { ...input, plan: { taskIds: [a.id, b.id], edges: [] }, assumptions: [b.id],
+    assignments: { [a.id]: input.assignments[a.id], [b.id]: input.assignments[b.id] } };
+  const collection = capture(emptyScenarioCollection, 'A', value);
+  const reference = { taskIds: [a.id, b.id], edges: [edge(a, b)] };
+  const original = JSON.stringify({ collection, reference });
+  const result = prepareScenarioDraft(collection, collection.slots.A.ref, reference, []);
+  assert.equal(result.ok, false);
+  assert.match(result.message, /Plan A.*conflicting/);
+  assert.equal(JSON.stringify({ collection, reference }), original);
 });

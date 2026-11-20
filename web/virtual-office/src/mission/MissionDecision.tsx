@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { findAgent, findTask } from '../demo/selectors';
 import { compareScenarios, evaluateScenario, recommendCollection, recordPreference, scenarioLimitations, scenarioSlots } from './scenarios';
-import type { DecisionRecord, PlanningCriterion, ScenarioCollection, ScenarioSlot } from './scenarios';
+import type { DecisionRecord, PlanningCriterion, ScenarioCollection, ScenarioRef, ScenarioSlot } from './scenarios';
 
 const criteriaLabels = {
   'fewer-initial-blockers': 'Fewer initially blocked tasks',
@@ -16,13 +16,14 @@ const withheld = {
 };
 const name = (id: string) => findTask(id)?.title ?? id;
 
-export function MissionDecision({ collection, criteria, decision, onCriteria, onCapture, onRemove, onRecord }: {
+export function MissionDecision({ collection, criteria, decision, onCriteria, onCapture, onRemove, onRecord, onLoad }: {
   collection: ScenarioCollection;
   criteria: readonly PlanningCriterion[];
   decision?: DecisionRecord;
   onCriteria: (criteria: readonly PlanningCriterion[]) => void;
   onCapture: (slot: ScenarioSlot) => void;
   onRemove: (slot: ScenarioSlot) => void;
+  onLoad: (ref: ScenarioRef) => void;
   onRecord: (decision: DecisionRecord) => void;
 }) {
   const capture = useRef<HTMLButtonElement>(null);
@@ -44,6 +45,7 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
     {!decision && <p>No local preference recorded. Choose a captured scenario and a criterion to record one.</p>}
     <p>Use Capture Variant A and Capture Variant B above to fill scenarios A and B.</p>
     <button type="button" className="text-button" ref={capture} onClick={() => onCapture('C')}>Capture Scenario C</button>
+    <p>Use Scenario as Plan B replaces the editable draft with that exact capture and focuses Configure. Captured scenarios and your recorded preference are preserved.</p>
     <ul aria-label="Scenario collection">
       {evaluations.map((result) => <li key={result.ref.slot}>
         <strong>Scenario {result.ref.slot} · Revision {result.ref.revision}</strong>
@@ -60,6 +62,9 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
           <ol aria-label="Hypothetical events">{result.terminal.events.map(({ step, taskId, agentId, type }) =>
             <li key={step}>Step {step} · {name(taskId)} · {findAgent(agentId)?.name ?? agentId} · {type} · hypothetical</li>)}</ol>
         </details>}
+        <button type="button" className="text-button" onClick={() => onLoad(result.ref)}
+          aria-describedby={`scenario-load-revision-${result.ref.slot}`}>Use Scenario {result.ref.slot} as Plan B</button>
+        <span id={`scenario-load-revision-${result.ref.slot}`}> Loads revision {result.ref.revision}.</span>
         <button type="button" className="text-button" onClick={() => {
           const target = result.ref.slot === 'C' ? capture.current
             : document.getElementById('capture-scenario-' + result.ref.slot.toLowerCase());

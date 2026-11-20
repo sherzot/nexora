@@ -1,3 +1,6 @@
+import { tasks as fixtures } from '../demo/fixtures';
+import { comparePlans } from './plan';
+import type { MissionPlan } from './plan';
 import { captureMissionVariant, compareReplayedVariants, replayVariant } from './diagnostics';
 import { createReadinessReport } from './readiness';
 import type { ConfigurationIssue, MissionInput, ReadinessReport } from './readiness';
@@ -218,4 +221,41 @@ export function decisionInvalidation(
   }
   if (occupied(collection).length > record.compared.length) return 'scenario-added';
   return null;
+}
+
+
+export function prepareScenarioDraft(
+  collection: ScenarioCollection,
+  ref: ScenarioRef,
+  reference: MissionPlan | undefined,
+  currentAssumptions: readonly string[],
+): { ok: true; input: MissionInput; assumptions: readonly string[] }
+  | { ok: false; message: string } {
+  const scenario = collection.slots[ref.slot];
+  if (!scenario || !sameRef(scenario.ref, ref)) {
+    return { ok: false, message: 'Scenario capture is missing or changed. Choose a current scenario revision.' };
+  }
+  const readiness = createReadinessReport(scenario.input);
+  if (readiness.status !== 'valid-for-hypothetical-preview') {
+    return { ok: false, message: readiness.issues.map(({ message }) => message).join(' ') };
+  }
+  const source = scenario.input;
+  const assumptions = [...source.assumptions, ...currentAssumptions.filter((id) =>
+    reference?.taskIds.includes(id) && !source.plan.taskIds.includes(id))];
+  if (reference) {
+    const comparison = comparePlans(reference, source.plan, assumptions, fixtures.map(({ id }) => id));
+    if (comparison.reference.error || comparison.draft.error) {
+      return { ok: false, message: 'Cannot load scenario while captured Plan A has conflicting completion assumptions. Update assumptions or capture a compatible Plan A. ' +
+        (comparison.reference.error ?? comparison.draft.error) };
+    }
+  }
+  return {
+    ok: true,
+    input: {
+      plan: { taskIds: [...source.plan.taskIds], edges: source.plan.edges.map((edge) => ({ ...edge })) },
+      assumptions: [...source.assumptions],
+      assignments: { ...source.assignments },
+    },
+    assumptions,
+  };
 }

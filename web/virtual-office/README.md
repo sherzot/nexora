@@ -873,3 +873,25 @@ With the guarded build served on loopback, run
 `node tests/run-office-browser.mjs chromium http://127.0.0.1:4204 mission-decision`.
 Run the same mode in Firefox and WebKit with the documented platform
 conventions, then run `all` for integrated verification.
+
+### C20 resume a captured scenario
+
+Use **Use Scenario A/B/C as Plan B** to replace the editable draft with
+the indicated scenario revision. Configure receives keyboard focus.
+The draft uses detached copies of captured tasks, edges, assignments
+and completion assumptions.
+
+Loading preserves captures, revision counters, criteria and the recorded
+local preference. It clears the current preview and prerequisite selectors.
+Editing the loaded draft keeps the capture intact. Recapturing a scenario
+or changing criteria still clears the local preference.
+
+Plan A retains its structure and assumptions for tasks exclusive to it.
+Shared task assumptions follow the loaded scenario. If those assumptions
+conflict with Plan A, loading is rejected with an explanation and current
+mission state is preserved. Reset Mission, route exit and reload retain
+their existing session cleanup behavior. This remains hypothetical planning.
+
+Verify using the existing `mission-decision` browser mode and `all` mode
+against a guarded build served on loopback, with the documented Firefox
+and WebKit conventions.

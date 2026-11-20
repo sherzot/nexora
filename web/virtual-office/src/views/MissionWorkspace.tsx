@@ -3,7 +3,7 @@ import { MissionReadiness } from '../mission/MissionReadiness';
 import { createDecisionSummary } from '../mission/readiness';
 import { MissionDiagnostics } from '../mission/MissionDiagnostics';
 import { MissionDecision } from '../mission/MissionDecision';
-import { captureScenario, emptyScenarioCollection, removeScenario } from '../mission/scenarios';
+import { captureScenario, emptyScenarioCollection, prepareScenarioDraft, removeScenario } from '../mission/scenarios';
 import type { DecisionRecord, PlanningCriterion, ScenarioSlot } from '../mission/scenarios';
 import { MissionPreview } from '../mission/MissionPreview';
 import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
@@ -255,6 +255,17 @@ export function MissionWorkspace() {
       onCapture={capture} />
     <MissionDecision collection={scenarios} criteria={criteria} decision={preference}
       onCapture={capture}
+      onLoad={(ref) => {
+        const result = prepareScenarioDraft(scenarios, ref, reference, assumptions);
+        if (!result.ok) { setNotice(result.message); return; }
+        setDraft(result.input.plan);
+        setAssignments(result.input.assignments);
+        setAssumptions(result.assumptions);
+        setPreview(undefined);
+        setDependent(''); setPrerequisite('');
+        setNotice(`Loaded Scenario ${ref.slot}, revision ${ref.revision}, into Plan B. Captures and local preference preserved.`);
+        navigateMission('mission-configure');
+      }}
       onRemove={(slot) => {
         setScenarios(removeScenario(scenarios, slot));
         clearPreference(`Removed Scenario ${slot}.`);
