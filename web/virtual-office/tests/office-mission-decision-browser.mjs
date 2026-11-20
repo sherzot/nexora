@@ -26,6 +26,23 @@ export default async function checkMissionDecision(page, origin) {
   const layout = 'Shape the workspace layout';
   const map = 'Map rooms to team context';
   const focusVisible = (control) => control.evaluate((node) => node === document.activeElement && node.matches(':focus-visible'));
+  const navigate = async (label, id) => {
+    const before = await page.evaluate(() => ({ hash: location.hash, length: history.length }));
+    await page.getByRole('navigation', { name: 'Mission sections' }).getByRole('button', { name: label, exact: true }).press('Enter');
+    const target = page.locator('#' + id);
+    assert.ok(await focusVisible(target), label + ' must receive visible keyboard focus');
+    assert.ok(await target.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= innerHeight;
+    }), label + ' destination must be in the viewport');
+    assert.deepEqual(await page.evaluate(() => ({ hash: location.hash, length: history.length })), before);
+  };
+  const navigation = async () => {
+    for (const [label, id] of [
+      ['Configure', 'mission-configure'], ['Readiness', 'mission-readiness'],
+      ['Preview & Diagnostics', 'mission-preview-diagnostics'], ['Decision', 'mission-decision-title'],
+    ]) await navigate(label, id);
+  };
   const choosePreference = async (slot, reason) => {
     const options = await select.getByRole('option').allTextContents();
     const label = options.find((option) => new RegExp('(?:Scenario |Variant )?' + slot + '(?:$|[ ·(])').test(option));
@@ -34,6 +51,13 @@ export default async function checkMissionDecision(page, origin) {
     await rationale.fill(reason);
     await record.press('Enter');
     assert.match(await mission.innerText(), /hypothetical/i);
+    const before = await page.evaluate(() => ({ hash: location.hash, length: history.length }));
+    await button('View recorded evidence').press('Enter');
+    assert.ok(await focusVisible(page.locator('#mission-recorded-evidence')));
+    assert.ok(await page.locator('#mission-recorded-evidence').evaluate((node) => {
+      const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight;
+    }));
+    assert.deepEqual(await page.evaluate(() => ({ hash: location.hash, length: history.length })), before);
     assert.ok((await mission.getByText(reason, { exact: false }).count()) > 0, 'Recorded rationale must be visible as text');
   };
   const configure = async () => {
@@ -52,7 +76,12 @@ export default async function checkMissionDecision(page, origin) {
   await page.goto(origin + '/#/mission');
   await heading('Mission Planning');
   await mission.waitFor();
+  await navigation();
   await configure();
+  await button('Go to scenario decisions').press('Enter');
+  assert.ok(await focusVisible(page.locator('#mission-decision-title')));
+  await button('Go to A/B capture controls').press('Enter');
+  assert.ok(await focusVisible(captureA));
   await captureA.press('Enter');
   await addEdge('demo-task-map', 'demo-task-layout');
   await captureB.press('Enter');
@@ -74,6 +103,7 @@ export default async function checkMissionDecision(page, origin) {
   await button('Step preview').press('Enter');
   await button('Reset preview').press('Enter');
   await recorded.waitFor();
+  await navigation();
 
   await task(map).press('Space');
   await recorded.waitFor();
@@ -83,6 +113,7 @@ export default async function checkMissionDecision(page, origin) {
   await combo('Proposed agent for ' + layout).selectOption('demo-agent-leo');
   await captureC.press('Enter');
   assert.equal(await recorded.count(), 0);
+  await navigation();
   assert.match(await mission.innerText(), /different tasks/i);
   assert.match(await mission.getByRole('status').innerText(), /no collection recommendation/i);
   assert.equal(await page.getByRole('status').filter({ hasText: 'Local preference cleared because its evidence changed.' }).count(), 1);
@@ -114,6 +145,7 @@ export default async function checkMissionDecision(page, origin) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(origin + '/#/mission');
     await heading('Mission Planning');
+    await navigation();
     await configure();
     await captureA.press('Enter');
     await captureB.press('Enter');

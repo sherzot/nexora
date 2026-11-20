@@ -55,6 +55,12 @@ export function MissionWorkspace() {
   const evaluation = evaluatePlan(draft, assumptions.filter((id) => draft.taskIds.includes(id)), catalog);
   const comparison = reference && comparePlans(reference, draft, assumptions, catalog);
 
+  function navigateMission(id: string) {
+    const destination = document.getElementById(id);
+    destination?.focus({ preventScroll: true });
+    destination?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }
+
   function clearPreference(message: string) {
     setPreference(undefined);
     setNotice(preference ? message + ' Local preference cleared because its evidence changed.' : message);
@@ -98,6 +104,23 @@ export function MissionWorkspace() {
       <p>Readiness reflects your assumptions. The draft is cleared when you leave or reload this view.</p>
     </div></section>
     <p><a href="#/office">Return to Office</a></p>
+    <nav aria-label="Mission sections" className="filter-bar">
+      {([
+        ['Configure', 'mission-configure'],
+        ['Readiness', 'mission-readiness'],
+        ['Preview & Diagnostics', 'mission-preview-diagnostics'],
+        ['Decision', 'mission-decision-title'],
+      ] as const).map(([label, id]) => <button key={id} type="button" className="text-button"
+        onClick={() => navigateMission(id)}>{label}</button>)}
+    </nav>
+    <p>Plan B is your editable draft. Plan A is its captured structural reference. Variant A and Variant B fill Scenario A and Scenario B in the same three-slot collection.</p>
+    <p>{draft.taskIds.length} draft tasks · {Object.keys(scenarios.slots).length} captured scenarios · {preview ? `Preview step ${preview.events.length}` : 'Preview not started'}</p>
+    <p>{preference
+      ? `Local preference: Scenario ${preference.preferred.ref.slot}, revision ${preference.preferred.ref.revision}.`
+      : 'No local preference recorded.'}</p>
+    {preference && <button type="button" className="text-button"
+      onClick={() => navigateMission('mission-recorded-evidence')}>View recorded evidence</button>}
+    <h2 id="mission-configure" tabIndex={-1}>Configure</h2>
     <fieldset className="content-section"><legend>Select mission tasks</legend>
       {tasks.map(({ id, title: name }, index) => <p key={id}><label>
         <input ref={index === 0 ? chooser : undefined} type="checkbox" checked={draft.taskIds.includes(id)}
@@ -209,13 +232,18 @@ export function MissionWorkspace() {
         }
       }}>Start preview</button>
     </fieldset>
+    <h2 id="mission-preview-diagnostics" tabIndex={-1}>Preview &amp; Diagnostics</h2>
+    <p>Preview steps use a captured Plan B input. Editing Plan B clears this preview while keeping captured scenarios.</p>
     {preview && <MissionPreview state={preview}
       onStep={() => setPreview((state) => state && stepMissionPreview(state))}
       onReset={() => {
         setPreview((state) => state && resetMissionPreview(state));
         setNotice('Mission preview reset to step zero.');
       }} />}
-    <MissionReadiness report={decision.draft} limitations={decision.limitations} />
+    <section aria-labelledby="mission-readiness">
+      <h2 id="mission-readiness" tabIndex={-1}>Readiness</h2>
+      <MissionReadiness report={decision.draft} limitations={decision.limitations} />
+    </section>
     <MissionDiagnostics
       input={input}
       comparison={decision.comparison}

@@ -33,8 +33,15 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
   const winner = recommendCollection(pairs, collection, criteria);
 
   return <section className="content-section" aria-labelledby="mission-decision-title">
-    <h2 id="mission-decision-title">Mission Decision</h2>
+    <h2 id="mission-decision-title" tabIndex={-1}>Mission Decision</h2>
     <p>Compare hypothetical captures of Plan B and record a local planning preference. Logical steps count hypothetical transitions. Operational approval, agent availability, cost, duration and safety are outside this model.</p>
+    <p>Plan B edits and Reset Preview preserve scenarios and your local preference. Adding, replacing or removing a scenario, or changing criteria, clears the recorded preference.</p>
+    <button type="button" className="text-button" onClick={() => {
+      const control = document.getElementById('capture-scenario-a');
+      control?.focus({ preventScroll: true });
+      control?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }}>Go to A/B capture controls</button>
+    {!decision && <p>No local preference recorded. Choose a captured scenario and a criterion to record one.</p>}
     <p>Use Capture Variant A and Capture Variant B above to fill scenarios A and B.</p>
     <button type="button" className="text-button" ref={capture} onClick={() => onCapture('C')}>Capture Scenario C</button>
     <ul aria-label="Scenario collection">
@@ -117,11 +124,12 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
     </form>}
     {decision && <section aria-label="Recorded local preference">
       <h3>Recorded local preference</h3>
+      <p>Your chosen hypothetical scenario is recorded below with the evidence and criteria used for that choice. Human Approval and Runtime admission require separate authority.</p>
       <p>Scenario {decision.preferred.ref.slot} · Revision {decision.preferred.ref.revision} · hypothetical</p>
       <p>Compared: {decision.compared.map(({ slot, revision }) => `${slot} (revision ${revision})`).join(', ')}</p>
       <p>Criteria: {decision.criteria.map((criterion) => criteriaLabels[criterion]).join(', ') || 'None'}</p>
       {decision.rationale && <p>Rationale: {decision.rationale}</p>}
-      <h4>Recorded comparison evidence</h4>
+      <h4 id="mission-recorded-evidence" tabIndex={-1}>Recorded comparison evidence</h4>
       <ul>{decision.evidence.map((pair) => {
         const [left, right] = pair.evidence.compared;
         return <li key={left.revision + ':' + right.revision}>
