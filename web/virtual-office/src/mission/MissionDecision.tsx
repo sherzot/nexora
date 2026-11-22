@@ -16,8 +16,10 @@ const withheld = {
 };
 const name = (id: string) => findTask(id)?.title ?? id;
 
-export function MissionDecision({ collection, criteria, decision, onCriteria, onCapture, onRemove, onRecord, onLoad }: {
+export function MissionDecision({ collection, criteria, decision, onCriteria, onCapture, onRemove, onRecord, onLoad, scenarioNames, onSaveName }: {
   collection: ScenarioCollection;
+  scenarioNames: Readonly<Partial<Record<ScenarioSlot, { revision: number; name: string }>>>;
+  onSaveName: (ref: ScenarioRef, text: string) => void;
   criteria: readonly PlanningCriterion[];
   decision?: DecisionRecord;
   onCriteria: (criteria: readonly PlanningCriterion[]) => void;
@@ -29,9 +31,15 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
   const capture = useRef<HTMLButtonElement>(null);
   const scenarios = useMemo(() => scenarioSlots.flatMap((slot) => collection.slots[slot] ?? []), [collection]);
   const evaluations = useMemo(() => scenarios.map(evaluateScenario), [scenarios]);
-  const pairs = evaluations.flatMap((left, index) => evaluations.slice(index + 1)
-    .map((right) => compareScenarios(left, right, criteria)));
-  const winner = recommendCollection(pairs, collection, criteria);
+  const pairs = useMemo(() => evaluations.flatMap((left, index) => evaluations.slice(index + 1)
+    .map((right) => compareScenarios(left, right, criteria))), [evaluations, criteria]);
+  const displayName = (ref: ScenarioRef) => {
+    const current = collection.slots[ref.slot];
+    const saved = scenarioNames[ref.slot];
+    return current?.ref.revision === ref.revision && saved?.revision === ref.revision ? saved.name : undefined;
+  };
+  const identity = (ref: ScenarioRef) => `Scenario ${ref.slot} · Revision ${ref.revision}`;
+  const winner = useMemo(() => recommendCollection(pairs, collection, criteria), [pairs, collection, criteria]);
 
   return <section className="content-section" aria-labelledby="mission-decision-title">
     <h2 id="mission-decision-title" tabIndex={-1}>Mission Decision</h2>
@@ -48,7 +56,18 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
     <p>Use Scenario as Plan B replaces the editable draft with that exact capture and focuses Configure. Captured scenarios and your recorded preference are preserved.</p>
     <ul aria-label="Scenario collection">
       {evaluations.map((result) => <li key={result.ref.slot}>
-        <strong>Scenario {result.ref.slot} · Revision {result.ref.revision}</strong>
+        <strong>{identity(result.ref)}</strong>
+        {displayName(result.ref) && <p>Current display name: {displayName(result.ref)} · {identity(result.ref)}</p>}
+        <form key={result.ref.revision} className="filter-bar" noValidate onSubmit={(event) => {
+          event.preventDefault();
+          const text = String(new FormData(event.currentTarget).get('display-name') ?? '');
+          onSaveName(result.ref, text);
+        }}>
+          <label>Name for Scenario {result.ref.slot}<input name="display-name" type="text"
+            defaultValue={displayName(result.ref) ?? ''} aria-describedby={`name-help-${result.ref.slot}`} /></label>
+          <span id={`name-help-${result.ref.slot}`}>Optional, up to 60 characters after trimming. Save to apply.</span>
+          <button type="submit" className="text-button">Save name for Scenario {result.ref.slot}</button>
+        </form>
         <p>{result.readiness.status === 'valid-for-hypothetical-preview' ? 'Valid for hypothetical preview' : 'Invalid scenario'} · {result.readiness.taskCount} tasks</p>
         <p>Tasks: {result.readiness.selectedTaskIds.map(name).join(', ')}</p>
         {result.kind === 'valid' && <p>{result.readiness.initial.blocked.length} initially blocked · {result.readiness.initial.assumedComplete.length} assumed complete · {result.terminal.events.length} logical steps</p>}
@@ -121,7 +140,7 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
       <div className="filter-bar">
         <label>Preferred scenario<select name="preferred" required defaultValue="">
           <option value="" disabled>Choose scenario</option>
-          {scenarios.map(({ ref }) => <option key={ref.revision} value={ref.revision}>Scenario {ref.slot}</option>)}
+          {scenarios.map(({ ref }) => <option key={ref.revision} value={ref.revision}>{identity(ref)}{displayName(ref) ? ` · ${displayName(ref)}` : ''}</option>)}
         </select></label>
         <label>Rationale<input name="rationale" type="text" maxLength={240} /></label>
         <button type="submit" className="text-button" disabled={scenarios.length < 2 || criteria.length === 0}>Record local preference</button>
@@ -130,7 +149,8 @@ export function MissionDecision({ collection, criteria, decision, onCriteria, on
     {decision && <section aria-label="Recorded local preference">
       <h3>Recorded local preference</h3>
       <p>Your chosen hypothetical scenario is recorded below with the evidence and criteria used for that choice. Human Approval and Runtime admission require separate authority.</p>
-      <p>Scenario {decision.preferred.ref.slot} · Revision {decision.preferred.ref.revision} · hypothetical</p>
+      <p>{identity(decision.preferred.ref)} · hypothetical</p>
+      {displayName(decision.preferred.ref) && <p>Current display name: {displayName(decision.preferred.ref)} · {identity(decision.preferred.ref)}. This name is presentation metadata.</p>}
       <p>Compared: {decision.compared.map(({ slot, revision }) => `${slot} (revision ${revision})`).join(', ')}</p>
       <p>Criteria: {decision.criteria.map((criterion) => criteriaLabels[criterion]).join(', ') || 'None'}</p>
       {decision.rationale && <p>Rationale: {decision.rationale}</p>}

@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { MissionReadiness } from '../mission/MissionReadiness';
 import { createDecisionSummary } from '../mission/readiness';
 import { MissionDiagnostics } from '../mission/MissionDiagnostics';
 import { MissionDecision } from '../mission/MissionDecision';
 import { captureScenario, emptyScenarioCollection, prepareScenarioDraft, removeScenario } from '../mission/scenarios';
-import type { DecisionRecord, PlanningCriterion, ScenarioSlot } from '../mission/scenarios';
+import type { DecisionRecord, PlanningCriterion, ScenarioRef, ScenarioSlot } from '../mission/scenarios';
 import { MissionPreview } from '../mission/MissionPreview';
 import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
 import type { MissionPreviewState } from '../mission/preview';
@@ -43,17 +43,46 @@ export function MissionWorkspace() {
   const [diagnosticTask, setDiagnosticTask] = useState('');
   const [scenarios, setScenarios] = useState(emptyScenarioCollection);
   const [criteria, setCriteria] = useState<readonly PlanningCriterion[]>([]);
+  const [scenarioNames, setScenarioNames] = useState<Partial<Record<ScenarioSlot, { revision: number; name: string }>>>({});
   const [preference, setPreference] = useState<DecisionRecord>();
   const applicableAssumptions = assumptions.filter((id) => draft.taskIds.includes(id));
   const input = { plan: draft, assumptions: applicableAssumptions, assignments };
-  const decision = createDecisionSummary(input, scenarios.slots.A?.input, scenarios.slots.B?.input);
+  const decision = useMemo(() => createDecisionSummary(
+    { plan: draft, assumptions: assumptions.filter((id) => draft.taskIds.includes(id)), assignments },
+    scenarios.slots.A?.input, scenarios.slots.B?.input),
+  [draft, assumptions, assignments, scenarios]);
   const [notice, setNotice] = useState('');
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
   const selected = tasks.filter(({ id }) => draft.taskIds.includes(id));
   const assumptionTasks = tasks.filter(({ id }) => draft.taskIds.includes(id) || reference?.taskIds.includes(id));
   const evaluation = evaluatePlan(draft, assumptions.filter((id) => draft.taskIds.includes(id)), catalog);
-  const comparison = reference && comparePlans(reference, draft, assumptions, catalog);
+  const comparison = useMemo(() => reference && comparePlans(reference, draft, assumptions, catalog),
+    [reference, draft, assumptions]);
+
+  function clearScenarioName(slot: ScenarioSlot) {
+    setScenarioNames((previous) => {
+      const next = { ...previous };
+      delete next[slot];
+      return next;
+    });
+  }
+
+  function saveScenarioName(ref: ScenarioRef, text: string) {
+    if (scenarios.slots[ref.slot]?.ref.revision !== ref.revision) {
+      setNotice('This scenario revision changed. Name the current capture.');
+      return;
+    }
+    const name = text.trim();
+    if (name.length > 60) {
+      setNotice('Scenario name must be 60 characters or fewer. The saved name was preserved.');
+      return;
+    }
+    if (name) setScenarioNames((previous) => ({ ...previous, [ref.slot]: { revision: ref.revision, name } }));
+    else clearScenarioName(ref.slot);
+    setNotice(name ? `Saved name for Scenario ${ref.slot}, revision ${ref.revision}.`
+      : `Cleared name for Scenario ${ref.slot}, revision ${ref.revision}.`);
+  }
 
   function navigateMission(id: string) {
     const destination = document.getElementById(id);
@@ -73,6 +102,7 @@ export function MissionWorkspace() {
       return;
     }
     setScenarios(result.collection);
+    clearScenarioName(slot);
     clearPreference(`Captured Scenario ${slot} from editable Plan B at step zero.`);
   }
 
@@ -186,7 +216,7 @@ export function MissionWorkspace() {
         chooser.current?.focus();
         setDraft(empty); setAssumptions([]); setReference(undefined);
         setAssignments({}); setPreview(undefined);
-        setDiagnosticTask(''); setScenarios(emptyScenarioCollection); setCriteria([]); setPreference(undefined);
+        setDiagnosticTask(''); setScenarioNames({}); setScenarios(emptyScenarioCollection); setCriteria([]); setPreference(undefined);
         setDependent(''); setPrerequisite(''); setNotice('Mission reset.');
       }}>Reset mission</button>
     </div>
@@ -254,6 +284,7 @@ export function MissionWorkspace() {
       variantB={scenarios.slots.B?.input}
       onCapture={capture} />
     <MissionDecision collection={scenarios} criteria={criteria} decision={preference}
+      scenarioNames={scenarioNames} onSaveName={saveScenarioName}
       onCapture={capture}
       onLoad={(ref) => {
         const result = prepareScenarioDraft(scenarios, ref, reference, assumptions);
@@ -268,6 +299,7 @@ export function MissionWorkspace() {
       }}
       onRemove={(slot) => {
         setScenarios(removeScenario(scenarios, slot));
+        clearScenarioName(slot);
         clearPreference(`Removed Scenario ${slot}.`);
       }}
       onCriteria={(next) => {
