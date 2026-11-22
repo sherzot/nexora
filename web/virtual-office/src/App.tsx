@@ -55,7 +55,7 @@ export default function App() {
     controller.reset(); setTheme('light'); setReducedMotion(false); setResetVersion((value) => value + 1);
     window.location.hash = '/office';
   };
-  const active = route.view === 'agent' ? 'agents' : route.view === 'task' ? 'tasks' : route.view === 'mission' ? 'office' : route.view;
+  const active = route.view === 'agent' ? 'agents' : route.view === 'task' ? 'tasks' : route.view;
   let content;
   switch (route.view) {
     case 'office': content = <OfficeOverview dark={theme === 'dark'} reducedMotion={reducedMotion} />; break;

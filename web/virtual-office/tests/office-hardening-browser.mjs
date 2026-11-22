@@ -78,6 +78,14 @@ export default async function checkOfficeHardening(page, origin = 'http://127.0.
         if (route === 'office') {
           await page.locator('svg.office-scene').waitFor();
           assert(await canvas.count() === 0, 'Essential Office navigation required WebGL');
+          const results = page.getByRole('region', { name: 'Playback results', exact: true });
+          await results.waitFor();
+          const start = button('Start');
+          assert((await start.boundingBox()).height >= 44, 'Playback start target is under 44 pixels');
+          await button('Step forward').press('Enter');
+          assert((await results.innerText()).includes('Observed so far'), 'Mobile fallback must expose observed results');
+          await button('Reset simulation').press('Enter');
+          assert((await results.innerText()).includes('No task results have been observed.'), 'Mobile reset must clear outcomes');
         }
       }
     }
