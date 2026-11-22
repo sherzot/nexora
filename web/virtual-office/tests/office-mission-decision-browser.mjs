@@ -152,6 +152,11 @@ export default async function checkMissionDecision(page, origin) {
     await captureC.press('Enter');
     await edgeCriterion.press('Space');
     await choosePreference('C', 'Use the C capture in this local session.');
+    await button('Use Scenario C as Plan B').press('Enter');
+    assert.ok(await focusVisible(page.locator('#mission-configure')));
+    assert.ok(await page.locator('#mission-configure').evaluate((node) => {
+      const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight;
+    }));
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow at ' + width);
     await page.reload();
     await heading('Mission Planning');
@@ -159,8 +164,65 @@ export default async function checkMissionDecision(page, origin) {
     assert.equal(await mission.getByText('Use the C capture in this local session.', { exact: false }).count(), 0);
   }
 
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await button('Reset mission').press('Enter');
+  await configure();
+  await captureA.press('Enter');
+  await captureB.press('Enter');
+  await criterion.press('Space');
+  await choosePreference('A', 'Keep the original captured configuration.');
+  await button('Start preview').press('Enter');
+  await button('Step preview').press('Enter');
+  await task(map).press('Space');
+  await page.getByLabel('Dependent task').selectOption('demo-task-layout');
+  await page.getByLabel('Required task').selectOption('demo-task-layout');
+  await button('Start preview').press('Enter');
+  await button('Step preview').press('Enter');
+  const capturesBefore = await mission.getByRole('list', { name: 'Scenario collection', exact: true }).innerText();
+  const locationBefore = await page.evaluate(() => ({ hash: location.hash, length: history.length }));
+  await button('Use Scenario A as Plan B').press('Enter');
+  assert.ok(await focusVisible(page.locator('#mission-configure')));
+  assert.ok(await page.locator('#mission-configure').evaluate((node) => {
+    const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight;
+  }));
+  assert.deepEqual(await page.evaluate(() => ({ hash: location.hash, length: history.length })), locationBefore);
+  assert.equal(await task(map).isChecked(), true);
+  assert.equal(await page.getByLabel('Dependent task').inputValue(), '');
+  assert.equal(await page.getByLabel('Required task').inputValue(), '');
+  assert.equal(await button('Step preview').count(), 0);
+  assert.equal(await mission.getByRole('list', { name: 'Scenario collection', exact: true }).innerText(), capturesBefore);
+  await mission.getByText('Keep the original captured configuration.', { exact: false }).waitFor();
+  await button('Start preview').press('Enter');
+  await button('Step preview').press('Enter');
+  await task(map).press('Space');
+  assert.equal(await mission.getByRole('list', { name: 'Scenario collection', exact: true }).innerText(), capturesBefore);
+  await captureB.press('Enter');
+  assert.equal(await button('View recorded evidence').count(), 0);
+
+  // A scenario can be valid on its own yet conflict with captured Plan A.
+  await button('Reset mission').press('Enter');
+  await configure();
+  await page.getByRole('checkbox', { name: 'Assume complete: ' + map, exact: true }).press('Space');
+  await captureA.press('Enter');
+  await page.getByRole('checkbox', { name: 'Assume complete: ' + map, exact: true }).press('Space');
+  await addEdge('demo-task-map', 'demo-task-layout');
+  await button('Capture Plan A').press('Enter');
+  await captureB.press('Enter');
+  await criterion.press('Space');
+  await choosePreference('B', 'Preserve the compatible plan while rejecting load.');
+  await button('Start preview').press('Enter');
+  await button('Step preview').press('Enter');
+  const draftBefore = await page.getByRole('region', { name: 'Plan B readiness', exact: true }).innerText();
+  const previewBefore = await page.getByRole('region', { name: 'Mission preview', exact: true }).innerText();
+  const evidenceBefore = await mission.innerText();
+  await button('Use Scenario A as Plan B').press('Enter');
+  assert.equal(await page.getByRole('region', { name: 'Plan B readiness', exact: true }).innerText(), draftBefore);
+  assert.equal(await page.getByRole('region', { name: 'Mission preview', exact: true }).innerText(), previewBefore);
+  assert.equal(await mission.innerText(), evidenceBefore);
+  assert.equal(await page.getByRole('status').filter({ hasText: 'Cannot load scenario while captured Plan A' }).count(), 1);
+
   assert.deepEqual(external, []);
   assert.deepEqual(errors, []);
-  return { scenarios: 'PASS', recommendations: 'PASS', preference: 'PASS', focus: 'PASS', history: 'PASS',
+  return { resume: 'PASS', atomicRejection: 'PASS', scenarios: 'PASS', recommendations: 'PASS', preference: 'PASS', focus: 'PASS', history: 'PASS',
     playbackIsolation: 'PASS', mobileWidths: [320, 390], external, errors };
 }
