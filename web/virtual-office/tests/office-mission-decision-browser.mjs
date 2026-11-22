@@ -25,6 +25,8 @@ export default async function checkMissionDecision(page, origin) {
   const rationale = page.getByLabel('Rationale', { exact: true });
   const layout = 'Shape the workspace layout';
   const map = 'Map rooms to team context';
+  const nextFocus = process.platform === 'darwin' && page.context().browser()?.browserType().name() === 'webkit'
+    ? 'Alt+Tab' : 'Tab';
   const focusVisible = (control) => control.evaluate((node) => node === document.activeElement && node.matches(':focus-visible'));
   const navigate = async (label, id) => {
     const before = await page.evaluate(() => ({ hash: location.hash, length: history.length }));
@@ -307,8 +309,123 @@ export default async function checkMissionDecision(page, origin) {
   await captureB.press('Enter');
   assert.doesNotMatch(await mission.innerText(), /Ends on reload/);
 
+  // C22: inspect, load, edit, preview, capture and compare through existing controls.
+  const sample = page.getByRole('region', { name: 'Try a sample mission', exact: true });
+  const loadSample = button('Load sample mission');
+  const replaceSample = button('Replace Plan B with sample');
+  const cancelSample = button('Cancel sample replacement');
+  const previewRegion = page.getByRole('region', { name: 'Mission preview', exact: true });
+  const readinessRegion = page.getByRole('region', { name: 'Plan B readiness', exact: true });
+  const planARegion = page.getByRole('region', { name: 'Plan A', exact: true });
+  const location = () => page.evaluate(() => ({ hash: window.location.hash, length: history.length }));
+  await button('Reset mission').press('Enter');
+  assert.match(await sample.innerText(), /Shape the workspace layout · Ada/);
+  assert.match(await sample.innerText(), /Map rooms to team context · Noah/);
+  assert.match(await sample.innerText(), /Trace keyboard navigation · Iris/);
+  assert.match(await sample.innerText(), /No tasks are assumed complete/);
+  const sampleLocation = await location();
+  await loadSample.press('Enter');
+  assert.ok(await focusVisible(page.locator('#mission-configure')));
+  await page.keyboard.press(nextFocus);
+  assert.ok(await focusVisible(task(layout)), 'Configure continues into the task choices');
+  assert.deepEqual(await location(), sampleLocation);
+  assert.equal(await task('Trace keyboard navigation').isChecked(), true);
+  assert.equal(await combo('Proposed agent for Trace keyboard navigation').inputValue(), 'demo-agent-iris');
+  assert.match(await readinessRegion.innerText(), /Map rooms to team context · Blocked in this plan/);
+  await button('Start preview').press('Enter');
+  for (let step = 0; step < 6; step++) await button('Step preview').press('Enter');
+  assert.match(await previewRegion.getByRole('status').innerText(), /Preview complete. Step 6/);
+  await captureA.press('Enter');
+  await page.getByLabel('Name for Scenario A', { exact: true }).fill('Original sample');
+  await button('Save name for Scenario A').press('Enter');
+  await button('Capture Plan A').press('Enter');
+  const samplePlanA = await planARegion.innerText();
+  await task('Trace keyboard navigation').press('Space');
+  await captureB.press('Enter');
+  await criterion.press('Space');
+  await choosePreference('A', 'Keep the original sample evidence.');
+  await button('Start preview').press('Enter');
+  await button('Step preview').press('Enter');
+  await combo('Dependent task').selectOption('demo-task-layout');
+  await combo('Required task').selectOption('demo-task-layout');
+  const beforeSample = {
+    readiness: await readinessRegion.innerText(), preview: await previewRegion.innerText(),
+    decision: await mission.innerText(), planA: await planARegion.innerText(),
+  };
+  await loadSample.press('Enter');
+  assert.equal(await readinessRegion.innerText(), beforeSample.readiness, 'Opening confirmation must not mutate Plan B');
+  assert.equal(await previewRegion.innerText(), beforeSample.preview);
+  await page.keyboard.press(nextFocus);
+  assert.ok(await focusVisible(replaceSample));
+  await page.keyboard.press(nextFocus);
+  assert.ok(await focusVisible(cancelSample));
+  await cancelSample.press('Enter');
+  assert.ok(await focusVisible(loadSample));
+  assert.equal(await mission.innerText(), beforeSample.decision);
+  assert.equal(await planARegion.innerText(), beforeSample.planA);
+  await loadSample.press('Enter');
+  await replaceSample.press('Enter');
+  assert.ok(await focusVisible(page.locator('#mission-configure')));
+  assert.equal(await previewRegion.count(), 0);
+  assert.equal(await combo('Dependent task').inputValue(), '');
+  assert.equal(await combo('Required task').inputValue(), '');
+  assert.equal(await planARegion.innerText(), samplePlanA);
+  assert.equal(await mission.innerText(), beforeSample.decision, 'Sample load preserves captures, names, criteria and preference');
+  assert.equal(await criterion.isChecked(), true);
+  assert.deepEqual(await location(), sampleLocation);
+  await captureC.press('Enter');
+  assert.equal(await button('View recorded evidence').count(), 0, 'A new capture still invalidates the preference');
+  assert.match(await mission.innerText(), /Scenario C · Revision 3/);
+  assert.match(await mission.innerText(), /tie/i);
+
+  // Preserved Plan A-only completion cannot depend on a sample task reset to incomplete.
+  await button('Reset mission').press('Enter');
+  await configure();
+  const notes = 'Write the demo field notes';
+  await task(notes).press('Space');
+  await combo('Proposed agent for ' + notes).selectOption('demo-agent-theo');
+  await addEdge('demo-task-notes', 'demo-task-layout');
+  await page.getByRole('checkbox', { name: 'Assume complete: ' + layout, exact: true }).press('Space');
+  await page.getByRole('checkbox', { name: 'Assume complete: ' + notes, exact: true }).press('Space');
+  await button('Capture Plan A').press('Enter');
+  await task(notes).press('Space');
+  await button('Start preview').press('Enter');
+  const conflictBefore = { planA: await planARegion.innerText(), readiness: await readinessRegion.innerText(),
+    preview: await previewRegion.innerText(), decision: await mission.innerText() };
+  await loadSample.press('Enter');
+  await replaceSample.press('Enter');
+  assert.equal(await planARegion.innerText(), conflictBefore.planA);
+  assert.equal(await readinessRegion.innerText(), conflictBefore.readiness);
+  assert.equal(await previewRegion.innerText(), conflictBefore.preview);
+  assert.equal(await mission.innerText(), conflictBefore.decision);
+  assert.equal(await page.getByRole('status').filter({ hasText: 'Cannot load sample mission while captured Plan A' }).count(), 1);
+  await cancelSample.press('Enter');
+
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await button('Reset mission').press('Enter');
+    await loadSample.press('Enter');
+    assert.ok(await focusVisible(page.locator('#mission-configure')));
+    assert.ok(await page.locator('#mission-configure').evaluate((node) => {
+      const box = node.getBoundingClientRect(); return box.top >= 0 && box.bottom <= innerHeight;
+    }));
+    await button('Start preview').press('Enter');
+    await button('Step preview').press('Enter');
+    await loadSample.press('Enter');
+    await cancelSample.press('Enter');
+    assert.match(await previewRegion.getByRole('status').innerText(), /Step 1/);
+    await loadSample.press('Enter');
+    await replaceSample.press('Enter');
+    assert.equal(await previewRegion.count(), 0);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Sample has no horizontal overflow at ' + width);
+    await page.reload();
+    await heading('Mission Planning');
+    assert.equal(await task(layout).isChecked(), false);
+    assert.equal(await replaceSample.count(), 0);
+  }
+
   assert.deepEqual(external, []);
   assert.deepEqual(errors, []);
-  return { naming: 'PASS', evidenceIsolation: 'PASS', resume: 'PASS', atomicRejection: 'PASS', scenarios: 'PASS', recommendations: 'PASS', preference: 'PASS', focus: 'PASS', history: 'PASS',
+  return { sampleMission: 'PASS', sampleCancellation: 'PASS', sampleConflict: 'PASS', naming: 'PASS', evidenceIsolation: 'PASS', resume: 'PASS', atomicRejection: 'PASS', scenarios: 'PASS', recommendations: 'PASS', preference: 'PASS', focus: 'PASS', history: 'PASS',
     playbackIsolation: 'PASS', mobileWidths: [320, 390], external, errors };
 }

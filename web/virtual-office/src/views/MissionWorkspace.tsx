@@ -3,7 +3,7 @@ import { MissionReadiness } from '../mission/MissionReadiness';
 import { createDecisionSummary } from '../mission/readiness';
 import { MissionDiagnostics } from '../mission/MissionDiagnostics';
 import { MissionDecision } from '../mission/MissionDecision';
-import { captureScenario, emptyScenarioCollection, prepareScenarioDraft, removeScenario } from '../mission/scenarios';
+import { captureScenario, emptyScenarioCollection, prepareSampleMission, prepareScenarioDraft, removeScenario, sampleMission } from '../mission/scenarios';
 import type { DecisionRecord, PlanningCriterion, ScenarioRef, ScenarioSlot } from '../mission/scenarios';
 import { MissionPreview } from '../mission/MissionPreview';
 import { createMissionPreview, resetMissionPreview, stepMissionPreview } from '../mission/preview';
@@ -52,6 +52,8 @@ export function MissionWorkspace() {
     scenarios.slots.A?.input, scenarios.slots.B?.input),
   [draft, assumptions, assignments, scenarios]);
   const [notice, setNotice] = useState('');
+  const [confirmSample, setConfirmSample] = useState(false);
+  const sampleLoader = useRef<HTMLButtonElement>(null);
   const chooser = useRef<HTMLInputElement>(null);
   const dependent = useRef<HTMLSelectElement>(null);
   const selected = tasks.filter(({ id }) => draft.taskIds.includes(id));
@@ -88,6 +90,19 @@ export function MissionWorkspace() {
     const destination = document.getElementById(id);
     destination?.focus({ preventScroll: true });
     destination?.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }
+
+  function loadSample() {
+    const prepared = prepareSampleMission(reference, assumptions);
+    if (!prepared.ok) { setNotice(prepared.message); return; }
+    setDraft(prepared.input.plan);
+    setAssignments(prepared.input.assignments);
+    setAssumptions(prepared.assumptions);
+    setPreview(undefined);
+    setDependent(''); setPrerequisite(''); setDiagnosticTask('');
+    setConfirmSample(false);
+    setNotice('Sample mission loaded into editable Plan B. Review Configure, then start a hypothetical preview and capture a scenario. Existing Plan A, captures and local preference were preserved.');
+    navigateMission('mission-configure');
   }
 
   function clearPreference(message: string) {
@@ -150,6 +165,28 @@ export function MissionWorkspace() {
       : 'No local preference recorded.'}</p>
     {preference && <button type="button" className="text-button"
       onClick={() => navigateMission('mission-recorded-evidence')}>View recorded evidence</button>}
+    <section className="content-section" aria-labelledby="mission-sample-title">
+      <h2 id="mission-sample-title">Try a sample mission</h2>
+      <p>Explore a synthetic workspace planning example. Nothing is executed or saved outside this view.</p>
+      <ul>{sampleMission.plan.taskIds.map((id) => <li key={id}>
+        {title(id)} · {findAgent(sampleMission.assignments[id])?.name}
+      </li>)}</ul>
+      <p>Map rooms to team context requires Shape the workspace layout. Trace keyboard navigation is independent. No tasks are assumed complete.</p>
+      <p>Load into Configure → Start preview → Capture Variant A or B → Compare in Decision. You can edit the sample before capturing.</p>
+      <button ref={sampleLoader} type="button" className="text-button" aria-expanded={confirmSample}
+        aria-controls="mission-sample-confirm" onClick={() => {
+          if (draft.taskIds.length || draft.edges.length || Object.keys(assignments).length) setConfirmSample(true);
+          else loadSample();
+        }}>Load sample mission</button>
+      <div hidden={!confirmSample} id="mission-sample-confirm" role="group" aria-labelledby="mission-sample-confirm-title">
+        <h3 id="mission-sample-confirm-title">Replace editable Plan B?</h3>
+        <p>This replaces draft tasks, prerequisites, assignments and shared completion assumptions, and clears the current preview. Plan A, captured scenarios, their names, criteria and recorded preference stay unchanged. Conflicting Plan A assumptions will prevent loading.</p>
+        <button type="button" className="text-button" onClick={loadSample}>Replace Plan B with sample</button>{' '}
+        <button type="button" className="text-button" onClick={() => {
+          setConfirmSample(false); sampleLoader.current?.focus();
+        }}>Cancel sample replacement</button>
+      </div>
+    </section>
     <h2 id="mission-configure" tabIndex={-1}>Configure</h2>
     <fieldset className="content-section"><legend>Select mission tasks</legend>
       {tasks.map(({ id, title: name }, index) => <p key={id}><label>
@@ -217,7 +254,7 @@ export function MissionWorkspace() {
         setDraft(empty); setAssumptions([]); setReference(undefined);
         setAssignments({}); setPreview(undefined);
         setDiagnosticTask(''); setScenarioNames({}); setScenarios(emptyScenarioCollection); setCriteria([]); setPreference(undefined);
-        setDependent(''); setPrerequisite(''); setNotice('Mission reset.');
+        setDependent(''); setPrerequisite(''); setConfirmSample(false); setNotice('Mission reset.');
       }}>Reset mission</button>
     </div>
     {reference && comparison && <section className="content-section" aria-label="Plan comparison">

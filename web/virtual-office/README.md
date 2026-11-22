@@ -916,3 +916,29 @@ all names with the local session. Names are never stored in scenario evidence.
 Run the existing `mission-decision` journey and integrated `all` suites in
 Chromium, Firefox and WebKit against the guarded build served on loopback,
 using the documented platform workarounds.
+
+
+### C22 sample mission onboarding
+
+**Try a sample mission** describes three existing fixture tasks before loading:
+layout (Ada), room mapping (Noah) and keyboard navigation (Iris). Mapping requires
+layout; keyboard navigation is independent. No completion is assumed.
+**Load sample mission** prepares an editable Plan B using the existing validation.
+When a draft exists, **Replace Plan B with sample** explicitly confirms replacement;
+**Cancel sample replacement** preserves the draft and preview and returns focus
+to the load button. A successful load focuses the existing Configure heading,
+clears the preview and prerequisite/diagnostic selectors, and leaves navigation
+hash/history unchanged.
+
+Plan A, captures, names, revision counters, criteria and recorded preference are
+preserved. Shared completion assumptions become the sample's empty set; Plan A-only
+assumptions remain. Conflicts with Plan A reject the entire load with feedback.
+Edit Configure, Start preview, then capture scenarios and compare in Decision using
+the existing controls. Capturing still invalidates preferences under the existing
+rules. Reset Mission, route exit and reload clear the local session. The sample
+performs no operations, persistence, external requests or Human Approval.
+
+Coverage is in `tests/mission-scenarios.test.mjs` and the `mission-decision` browser
+journey, including keyboard confirmation/cancellation, atomic rejection, evidence
+preservation, six-step replay and 320/390 px layouts. Run against a guarded build
+in Chromium, Firefox (documented macOS workaround) and WebKit.

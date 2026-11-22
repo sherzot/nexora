@@ -17,7 +17,7 @@ import { test } from 'node:test';
 
 const {
   emptyScenarioCollection, captureScenario, removeScenario, evaluateScenario,
-  compareScenarios, recommendCollection, recordPreference, decisionInvalidation, prepareScenarioDraft,
+  compareScenarios, recommendCollection, recordPreference, decisionInvalidation, prepareScenarioDraft, prepareSampleMission, sampleMission,
 } = load('mission/scenarios.ts');
 const { tasks } = load('demo/fixtures.ts');
 const [a, b, c, d] = tasks;
@@ -240,4 +240,53 @@ test('rejects loaded shared assumptions conflicting with Plan A before applying 
   assert.equal(result.ok, false);
   assert.match(result.message, /Plan A.*conflicting/);
   assert.equal(JSON.stringify({ collection, reference }), original);
+});
+
+
+test('sample has fixture-owned assignments, one prerequisite, no assumptions and deterministic replay', () => {
+  const result = prepareSampleMission(undefined, []);
+  assert.equal(result.ok, true);
+  assert.equal(result.input.plan.taskIds.join(), 'demo-task-layout,demo-task-map,demo-task-keyboard');
+  assert.equal(JSON.stringify(result.input.plan.edges), JSON.stringify([edge(a, b)]));
+  assert.equal(JSON.stringify(result.input.assignments), JSON.stringify({
+    'demo-task-layout': 'demo-agent-ada', 'demo-task-map': 'demo-agent-noah', 'demo-task-keyboard': 'demo-agent-iris',
+  }));
+  assert.equal(result.assumptions.length, 0);
+  const collection = capture(emptyScenarioCollection, 'A', result.input);
+  const evaluated = evaluateScenario(collection.slots.A);
+  assert.equal(evaluated.kind, 'valid');
+  assert.equal(evaluated.readiness.initial.ready.join(), [a.id, c.id].join());
+  assert.equal(evaluated.readiness.initial.blocked.map(({ taskId }) => taskId).join(), b.id);
+  assert.equal(evaluated.terminal.terminal, true);
+  assert.equal(evaluated.terminal.events.length, 6);
+  assert.equal(JSON.stringify(evaluateScenario(collection.slots.A).terminal), JSON.stringify(evaluated.terminal));
+  const before = JSON.stringify(sampleMission);
+  result.input.plan.taskIds.pop();
+  result.input.plan.edges[0].dependentId = c.id;
+  result.input.assignments[a.id] = 'changed';
+  result.input.assumptions.push(a.id);
+  result.assumptions.push(c.id);
+  assert.equal(JSON.stringify(sampleMission), before);
+  assert.equal(prepareSampleMission(undefined, []).input.plan.taskIds.length, 3);
+});
+
+test('sample preserves Plan A-only assumptions and resets shared assumptions without changing source evidence', () => {
+  const reference = { taskIds: [a.id, d.id], edges: [] };
+  const currentAssumptions = [a.id, d.id];
+  const original = JSON.stringify({ reference, currentAssumptions });
+  const result = prepareSampleMission(reference, currentAssumptions);
+  assert.equal(result.ok, true);
+  assert.equal(result.assumptions.join(), d.id);
+  assert.equal(result.input.assumptions.length, 0);
+  assert.equal(JSON.stringify({ reference, currentAssumptions }), original);
+});
+
+test('sample rejects incompatible Plan A assumptions before preparing any draft', () => {
+  const reference = { taskIds: [a.id, d.id], edges: [edge(a, d)] };
+  const currentAssumptions = [a.id, d.id];
+  const before = JSON.stringify({ reference, currentAssumptions, sampleMission });
+  const result = prepareSampleMission(reference, currentAssumptions);
+  assert.equal(result.ok, false);
+  assert.match(result.message, /Cannot load sample mission.*Plan A.*conflicting/);
+  assert.equal(JSON.stringify({ reference, currentAssumptions, sampleMission }), before);
 });
