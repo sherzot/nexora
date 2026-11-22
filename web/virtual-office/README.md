@@ -895,3 +895,24 @@ their existing session cleanup behavior. This remains hypothetical planning.
 Verify using the existing `mission-decision` browser mode and `all` mode
 against a guarded build served on loopback, with the documented Firefox
 and WebKit conventions.
+
+### C21 optional scenario names
+
+Each current Scenario A/B/C revision can have an optional display name.
+Type a name and activate **Save name for Scenario A/B/C**. Typing alone
+does not apply it. Save trims outer whitespace, accepts up to 60 characters,
+and clears the name when the trimmed input is empty. Overlength input
+produces feedback and preserves the saved name. Duplicate names are allowed.
+
+Cards and preference choices retain the canonical Scenario slot and Revision
+alongside the name. Recorded preferences may show a matching current name
+as supplemental presentation metadata. Their evidence and canonical references
+are preserved when a name changes. Names never determine lookup or recommendations.
+
+Successful replacement and removal clear the revision's name. Failed capture
+and loading into Plan B preserve it. Reset Mission, route exit and reload clear
+all names with the local session. Names are never stored in scenario evidence.
+
+Run the existing `mission-decision` journey and integrated `all` suites in
+Chromium, Firefox and WebKit against the guarded build served on loopback,
+using the documented platform workarounds.
