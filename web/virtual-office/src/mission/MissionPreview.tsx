@@ -1,3 +1,4 @@
+import { MissionScene } from './MissionScene';
 import { useRef } from 'react';
 import { findAgent, findTask } from '../demo/selectors';
 import { evaluatePlan } from './plan';
@@ -6,8 +7,9 @@ import type { MissionPreviewState } from './preview';
 const taskName = (id: string) => findTask(id)?.title ?? id;
 const agentName = (id: string) => findAgent(id)?.name ?? id;
 
-export function MissionPreview({ state, onStep, onReset }: {
+export function MissionPreview({ state, onStep, onReset, dark = false, reducedMotion = false }: {
   state: MissionPreviewState;
+  dark?: boolean; reducedMotion?: boolean;
   onStep: () => void;
   onReset: () => void;
 }) {
@@ -16,7 +18,8 @@ export function MissionPreview({ state, onStep, onReset }: {
   const captured = evaluatePlan(input.plan, input.assumptions, input.plan.taskIds);
   const capturedStatuses = new Map(captured.tasks.map(({ id, status }) => [id, status]));
 
-  return <section className="content-section" aria-labelledby="mission-preview-title">
+  return <div className="mission-preview-layout">
+    <div className="mission-preview-heading">
     <h2 id="mission-preview-title">Mission preview</h2>
     <p>Hypothetical preview of captured Plan B. Changes to Plan B that affect simulated work clear this preview.</p>
     <div className="filter-bar">
@@ -26,6 +29,9 @@ export function MissionPreview({ state, onStep, onReset }: {
         onReset();
       }}>Reset preview</button>
     </div>
+    </div>
+    <MissionScene state={state} dark={dark} reducedMotion={reducedMotion} />
+    <section className="content-section" aria-labelledby="mission-preview-title">
     <p role="status">{terminal ? 'Preview complete.' : 'Preview in progress.'} Step {events.length}.</p>
     <h3>Captured Plan B and preview state</h3>
     {tasks.length ? <ul className="task-detail-list">{tasks.map(({ id, status, unmet }) => <li key={id}>
@@ -41,5 +47,6 @@ export function MissionPreview({ state, onStep, onReset }: {
     <ol aria-label="Hypothetical mission events">{events.map((event) => <li key={event.step}>
       Step {event.step} · {taskName(event.taskId)} · {agentName(event.agentId)} · {event.type} · {event.provenance}
     </li>)}</ol>
-  </section>;
+    </section>
+  </div>;
 }

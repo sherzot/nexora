@@ -1,10 +1,12 @@
 import { AmbientLight, BoxGeometry, Color, CylinderGeometry, DirectionalLight, Group, InstancedMesh, Mesh, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera, Raycaster, Scene, SphereGeometry, TorusGeometry, Vector2, WebGLRenderer } from 'three';
+import type { OfficePresentation } from '../presentation';
 import type { Snapshot } from '../../simulation/model';
 import type { OrbitState } from './runtime';
 import type { DemoAgent, DemoRoom } from '../../demo/model';
 import { createLifetime, focusPoint, initialOrbit, navigate, overviewForAspect, selectAgent, transitionOrbit, zoom } from './runtime';
 
 export interface OfficeRenderer {
+  setPresentation(presentation?: OfficePresentation): void;
   setSimulation(snapshot: Snapshot | undefined, playing: boolean, speed: number): void;
   setCollaboration(source?: string, target?: string): void;
   setSelection(id: string): void;
@@ -171,6 +173,14 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     let reduced = reducedMotion;
     let overview = true;
     let simulated: Snapshot | undefined;
+    let presentation: OfficePresentation | undefined;
+    const activities = { idle: statusMats.Away, moving: statusMats.Focused, working: statusMats.Focused, collaborating: statusMats.Available, reviewing: statusMats.Reviewing, completed: statusMats.Available };
+    const presentationMats = { neutral: statusMats.Away, ready: statusMats.Available, active: statusMats.Focused, blocked: statusMats.Reviewing, completed: statusMats.Available, assumed: material('#9381bd') };
+    const badgeMaterial = (id: string) => {
+      const display = presentation?.agents.find((agent) => agent.id === id);
+      const activity = simulated?.agents.find((agent) => agent.id === id)?.activity;
+      return display ? presentationMats[display.tone] : activity ? activities[activity] : staticBadgeMaterials.get(id)!;
+    };
     let motionStart = 0, motionDuration = 500, movement = false;
     let lastSpeed = 1;
     const targets = new Map<string, { fromX: number; fromZ: number; x: number; z: number }>();
@@ -348,16 +358,24 @@ export function createOfficeRenderer(host: HTMLElement, agents: readonly DemoAge
     life.own(() => document.removeEventListener('visibilitychange', visibility));
     updateHighlights(); invalidate();
     return {
+      setPresentation(value) {
+        if (life.disposed || presentation === value) return;
+        presentation = value;
+        let changed = false;
+        for (const [id, badge] of badges) {
+          const next = badgeMaterial(id);
+          if (badge.material !== next) { badge.material = next; changed = true; }
+        }
+        if (changed) invalidate();
+      },
       setSimulation(snapshot, playing, speed) {
         if (life.disposed) return;
         const sameTick = simulated?.tick === snapshot?.tick && simulated?.scenario === snapshot?.scenario && simulated?.seed === snapshot?.seed;
         simulated = snapshot;
         let changed = false;
-        const activities = { idle: statusMats.Away, moving: statusMats.Focused, working: statusMats.Focused, collaborating: statusMats.Available, reviewing: statusMats.Reviewing, completed: statusMats.Available };
         for (const agent of agents) {
           const badge = badges.get(agent.id)!;
-          const activity = snapshot?.agents.find((item) => item.id === agent.id)?.activity;
-          const material = activity ? activities[activity] : staticBadgeMaterials.get(agent.id)!;
+          const material = badgeMaterial(agent.id);
           if (badge.material !== material) { badge.material = material; changed = true; }
         }
         if (!snapshot) { snapPositions(); changed = true; }
