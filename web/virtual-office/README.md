@@ -942,3 +942,29 @@ Coverage is in `tests/mission-scenarios.test.mjs` and the `mission-decision` bro
 journey, including keyboard confirmation/cancellation, atomic rejection, evidence
 preservation, six-step replay and 320/390 px layouts. Run against a guarded build
 in Chromium, Firefox (documented macOS workaround) and WebKit.
+
+
+### C23 unified frontend demo
+
+The existing simulation controls describe the selected scenario, show bounded
+step progress, and explain inactive, playing, paused and finished states. Start,
+Pause, Resume, Step forward and Reset simulation retain their existing semantics.
+The demo pauses when its tab is hidden. Choose **3D office** on desktop to watch
+procedural agent movement; the existing 2D scene remains available and is the
+mobile/WebGL fallback.
+
+Office **Playback results** projects the same controller snapshot used by the
+scene, inspector, task board, timeline and analytics. It reports moving agents,
+on-task agents (working/collaborating/reviewing), completed unique scenario tasks
+and observed events. No fixture Done status is presented as an observed result
+before playback starts. Recent activity is bounded to five events; selecting one
+focuses the corresponding agent inspector and its current task link. Results
+remain available after completion and route navigation, and clear on reset or
+scenario replacement. Analytics supplies the existing JSON/CSV reports.
+
+**Mission Planning** is available in main navigation. Its editable draft and
+hypothetical preview remain separate from Office playback; a sample mission does
+not execute agents. No controller, engine, fixture, dependency, persistence or
+operational authority is added. Verification extends the existing `journey` and
+hardening coverage and the integrated three-engine browser suites, including
+320/390 px mobile fallback, reduced motion and reset cleanup.
