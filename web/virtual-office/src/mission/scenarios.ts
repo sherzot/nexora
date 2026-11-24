@@ -235,17 +235,44 @@ export function prepareScenarioDraft(
   if (!scenario || !sameRef(scenario.ref, ref)) {
     return { ok: false, message: 'Scenario capture is missing or changed. Choose a current scenario revision.' };
   }
-  const readiness = createReadinessReport(scenario.input);
+  return prepareDraft(scenario.input, reference, currentAssumptions, 'scenario');
+}
+
+// The sample uses only existing fixture identities and the ordinary preview validator.
+export const sampleMission: MissionInput = Object.freeze({
+  plan: Object.freeze({
+    taskIds: Object.freeze(['demo-task-layout', 'demo-task-map', 'demo-task-keyboard']),
+    edges: Object.freeze([Object.freeze({ prerequisiteId: 'demo-task-layout', dependentId: 'demo-task-map' })]),
+  }),
+  assumptions: Object.freeze([]),
+  assignments: Object.freeze({
+    'demo-task-layout': 'demo-agent-ada',
+    'demo-task-map': 'demo-agent-noah',
+    'demo-task-keyboard': 'demo-agent-iris',
+  }),
+});
+
+export function prepareSampleMission(reference: MissionPlan | undefined, currentAssumptions: readonly string[]) {
+  return prepareDraft(sampleMission, reference, currentAssumptions, 'sample mission');
+}
+
+function prepareDraft(
+  source: MissionInput,
+  reference: MissionPlan | undefined,
+  currentAssumptions: readonly string[],
+  description: string,
+): { ok: true; input: MissionInput; assumptions: readonly string[] }
+  | { ok: false; message: string } {
+  const readiness = createReadinessReport(source);
   if (readiness.status !== 'valid-for-hypothetical-preview') {
     return { ok: false, message: readiness.issues.map(({ message }) => message).join(' ') };
   }
-  const source = scenario.input;
   const assumptions = [...source.assumptions, ...currentAssumptions.filter((id) =>
     reference?.taskIds.includes(id) && !source.plan.taskIds.includes(id))];
   if (reference) {
     const comparison = comparePlans(reference, source.plan, assumptions, fixtures.map(({ id }) => id));
     if (comparison.reference.error || comparison.draft.error) {
-      return { ok: false, message: 'Cannot load scenario while captured Plan A has conflicting completion assumptions. Update assumptions or capture a compatible Plan A. ' +
+      return { ok: false, message: `Cannot load ${description} while captured Plan A has conflicting completion assumptions. Update assumptions or capture a compatible Plan A. ` +
         (comparison.reference.error ?? comparison.draft.error) };
     }
   }
