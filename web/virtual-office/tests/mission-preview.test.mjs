@@ -1,3 +1,4 @@
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -59,3 +60,48 @@ assert.throws(() => createMissionPreview(graph, [], { ...assignments, unknown: '
 assert.throws(() => createMissionPreview({ taskIds: [], edges: [] }, [], {}), /Select at least one/);
 assert.throws(() => createMissionPreview({ ...graph, edges: [...graph.edges, { prerequisiteId: c.id, dependentId: a.id }] }, [], assignments), /cycle/);
 console.log('PASS: dependency order, fixture-order ties, assumed completion, terminal no-op, replay determinism, immutable capture and input rejection.');
+
+
+const { projectMissionOffice } = load('mission/presentation.ts');
+test('mission office projection uses captured task states and keeps display copies detached', () => {
+  const original = JSON.stringify(start);
+  const view = projectMissionOffice(start);
+  assert.equal(view.agents.length, 8);
+  assert.equal(view.agents.find(({ id }) => id === assignments[a.id]).label, 'Ready');
+  assert.equal(view.agents.find(({ id }) => id === assignments[c.id]).label, 'Blocked');
+  assert.equal(view.agents.find(({ id }) => id === 'demo-agent-owen').label, 'Not assigned');
+  const active = projectMissionOffice(stepMissionPreview(start));
+  assert.equal(active.agents.find(({ id }) => id === assignments[a.id]).tone, 'active');
+  assert.equal(active.agents.find(({ id }) => id === assignments[c.id]).tasks[0].unmet.join(), [a.id, b.id].join());
+  const terminal = projectMissionOffice(end);
+  assert.ok(terminal.agents.filter(({ tasks }) => tasks.length).every(({ label }) => label === 'Completed'));
+  view.agents.find(({ id }) => id === assignments[c.id]).tasks[0].unmet.pop();
+  view.agents.find(({ id }) => id === assignments[a.id]).tasks[0].status = 'Changed display';
+  assert.equal(JSON.stringify(start), original);
+  assert.equal(JSON.stringify(projectMissionOffice(resetMissionPreview(end))), JSON.stringify(projectMissionOffice(start)));
+});
+
+test('assumed tasks retain their label without inventing assigned agents or completion events', () => {
+  const before = JSON.stringify(all);
+  const view = projectMissionOffice(all);
+  assert.equal(view.unassigned.length, 3);
+  assert.ok(view.unassigned.every(({ status }) => status === 'Assumed complete'));
+  assert.ok(view.agents.every(({ label }) => label === 'Not assigned'));
+  assert.equal(all.events.length, 0);
+  const explicitlyAssigned = projectMissionOffice(createMissionPreview(graph, [a.id, b.id, c.id], assignments));
+  assert.ok(explicitlyAssigned.agents.filter(({ tasks }) => tasks.length).every(({ tone }) => tone === 'assumed'));
+  view.unassigned[0].unmet.push('display only');
+  assert.equal(JSON.stringify(all), before);
+});
+
+test('an agent with several tasks retains each status instead of claiming all are completed', () => {
+  const language = tasks.find(({ id }) => id === 'demo-task-language');
+  const input = createMissionPreview({ taskIds: [a.id, language.id], edges: [] }, [], { [a.id]: 'demo-agent-ada', [language.id]: 'demo-agent-ada' });
+  const completedFirst = stepMissionPreview(stepMissionPreview(input));
+  const view = projectMissionOffice(completedFirst).agents.find(({ id }) => id === 'demo-agent-ada');
+  assert.equal(view.label, 'Ready');
+  assert.equal(view.tasks.map(({ status }) => status).join(), 'Completed,Ready');
+  const activeSecond = projectMissionOffice(stepMissionPreview(completedFirst)).agents.find(({ id }) => id === 'demo-agent-ada');
+  assert.equal(activeSecond.label, 'Active');
+  assert.equal(activeSecond.tasks[1].id, language.id);
+});

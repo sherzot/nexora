@@ -117,6 +117,71 @@ export default async function checkMissionPreview(page, origin) {
   await heading('Virtual Office');
   assert((await page.locator('.agent-inspector h2').first().innerText()) === 'Leo', 'Mission route must preserve selection outside playback resets');
 
+  // C24: the shared renderer displays captured mission states without consuming playback.
+  await page.goto(origin + '/#/workspace');
+  await page.getByRole('combobox', { name: /^Theme/ }).selectOption('dark');
+  await page.getByRole('checkbox', { name: /^Reduce motion/ }).check();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(origin + '/#/mission');
+  await heading('Mission Planning');
+  await button('Load sample mission').press('Enter');
+  await start.press('Enter');
+  const scene = page.getByRole('region', { name: 'Mission office preview', exact: true });
+  const selectedTasks = scene.getByRole('region', { name: 'Selected mission agent tasks', exact: true });
+  const missionCanvas = scene.locator('.office-webgl canvas');
+  await missionCanvas.waitFor();
+  assert(await page.locator('.app-shell').getAttribute('data-theme') === 'dark', 'Mission must retain the selected dark theme');
+  assert(await page.locator('.app-shell').getAttribute('data-reduced-motion') === 'true', 'Mission must retain reduced motion');
+  const selectedStatus = (name) => scene.getByRole('button', { name: 'Select mission ' + name, exact: true });
+  assert((await selectedStatus('Ada').innerText()).includes('Ready'), 'Ada must project the actual ready task');
+  assert((await selectedStatus('Noah').innerText()).includes('Blocked'), 'Noah must project the captured prerequisite blocker');
+  assert((await selectedStatus('Owen').innerText()).includes('Not assigned'), 'Unassigned fixture agents must remain explicit');
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const sceneImage = async () => {
+    await missionCanvas.scrollIntoViewIfNeeded();
+    const box = await missionCanvas.boundingBox();
+    assert(box, 'Mission canvas must have visible bounds');
+    // Normalize fractional clipping edges and exclude the HTML caption: compare actual WebGL pixels.
+    return page.screenshot({ clip: { x: Math.ceil(box.x) + 1, y: Math.ceil(box.y) + 1,
+      width: Math.floor(box.width) - 2, height: Math.floor(box.height * 0.72) } });
+  };
+  const readyImage = await sceneImage();
+  const officeClock = await clock();
+  await step.press('Enter');
+  assert((await selectedTasks.innerText()).includes('Active'), 'Mission inspector must match the active preview task');
+  assert((await selectedStatus('Ada').innerText()).includes('Active'), 'Mission agent badge must match the preview');
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const activeImage = await sceneImage();
+  assert(!readyImage.equals(activeImage), 'Actual WebGL rendering must change for the task status');
+  assert(await clock() === officeClock, 'Mission steps cannot drive the Office clock');
+  const activeTasks = await selectedTasks.innerText();
+  await button('Step forward').press('Enter');
+  await page.getByRole('combobox', { name: 'Scenario', exact: true }).selectOption('collaboration');
+  await button('Reset simulation').press('Enter');
+  assert(await selectedTasks.innerText() === activeTasks, 'Office playback cannot replace captured mission state');
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert(activeImage.equals(await sceneImage()), 'Office reset must not recolor or move the Mission scene');
+  await selectedStatus('Noah').press('Enter');
+  assert((await selectedTasks.innerText()).includes('Requires: ' + first), 'Selection must expose the actual unmet prerequisite');
+  assert(await focus(selectedStatus('Noah')), 'HTML mission selection must retain visible keyboard focus');
+  await missionCanvas.evaluate((canvas) => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
+  await scene.locator('svg.office-scene').waitFor();
+  assert((await selectedTasks.innerText()).includes('Blocked'), 'WebGL failure must preserve the mission inspector');
+  assert((await scene.getByRole('button', { name: /^Select Noah,/ }).getAttribute('aria-label')).includes('Blocked'), 'SVG fallback must expose the same mission status');
+  await button('3D office').press('Enter');
+  await missionCanvas.waitFor();
+  assert((await selectedTasks.innerText()).includes('Blocked'), 'Renderer remount must retain selection and state');
+  await button('Reset preview').press('Enter');
+  for (let count = 0; count < 6; count++) await step.press('Enter');
+  assert((await selectedStatus('Noah').innerText()).includes('Completed'), 'Terminal projection must use completed task states');
+  await assumption(first).press('Space');
+  assert(await scene.count() === 0 && await missionCanvas.count() === 0, 'Successful edit must dispose the obsolete scene');
+  await assignment(first).selectOption('');
+  await start.press('Enter');
+  assert((await scene.getByRole('region', { name: 'Mission tasks without an assigned agent' }).innerText()).includes('Assumed complete'), 'An assumed task without an agent stays visible without invented attribution');
+  await button('Reset mission').press('Enter');
+  assert(await scene.count() === 0, 'Mission reset must release its scene');
+
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(origin + '/?mission-preview=' + width + '#/office');
@@ -127,6 +192,8 @@ export default async function checkMissionPreview(page, origin) {
     await assignment(first).selectOption('demo-agent-ada');
     await start.press('Enter');
     await step.press('Enter');
+    await scene.locator('svg.office-scene').waitFor();
+    assert((await selectedStatus('Ada').innerText()).includes('Active'), 'Mobile SVG must use the same active task projection');
     assert(await events.count() === 1 && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile preview must fit and expose events');
     await page.reload();
     await heading('Mission Planning');
@@ -134,5 +201,5 @@ export default async function checkMissionPreview(page, origin) {
   }
 
   assert(problems.length === 0, JSON.stringify(problems));
-  return { assignment: 'PASS', prerequisites: 'PASS', replay: 'PASS', isolation: 'PASS', invalidation: 'PASS', focus: 'PASS', history: 'PASS', widths: [320, 390], problems };
+  return { missionScene: 'PASS', webglStatus: 'PASS', sceneIsolation: 'PASS', contextLossFallback: 'PASS', assignment: 'PASS', prerequisites: 'PASS', replay: 'PASS', isolation: 'PASS', invalidation: 'PASS', focus: 'PASS', history: 'PASS', widths: [320, 390], problems };
 }

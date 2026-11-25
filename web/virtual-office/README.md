@@ -968,3 +968,37 @@ not execute agents. No controller, engine, fixture, dependency, persistence or
 operational authority is added. Verification extends the existing `journey` and
 hardening coverage and the integrated three-engine browser suites, including
 320/390 px mobile fallback, reduced motion and reset cleanup.
+
+
+### C24 mission office preview
+
+In **Mission Planning**, load the sample or configure an eligible draft, then
+**Start preview**. The captured mission now has a shared 3D office view on desktop,
+with explicit 2D selection and the existing mobile/WebGL-failure fallback.
+**Step preview** updates agent badges and selected-agent task details from the
+existing `MissionPreviewState`; the scene owns no dependency evaluation or timer.
+Use the HTML **Select mission Ada/Noah/...** controls as equivalent keyboard access.
+Ready, Active, Blocked, Completed and Assumed complete are hypothetical task states.
+Agents without captured assignments are labelled Not assigned. Assumed-complete
+tasks without an agent remain visible without inventing an assignment or event.
+
+For multiple tasks on one agent, the display badge prioritizes Active, Blocked,
+Ready, Completed, then Assumed complete; each task retains its own exact status
+and unmet prerequisites in the inspector. Avatars remain at fixture desks. This
+slice does not model walking, elapsed time, staffing capacity or real work.
+Camera transitions respect reduced motion. Theme, selection and state survive
+2D/3D switching and WebGL fallback; obsolete renderers are disposed on invalidation
+and route exit using the existing lifecycle.
+
+Office playback and its collaboration cues cannot overwrite this scene. Mission
+steps do not advance Office playback, captures, criteria or preferences. Successful
+draft edits clear the captured preview and scene under the existing contract;
+Reset Preview reprojects the same captured input at step zero. Reset Mission,
+route exit and reload end the local session. No model, fixture, dependency,
+lockfile, native policy, operational API or persistence change is introduced.
+
+Coverage is in `tests/mission-preview.test.mjs` and the `mission-preview` browser
+journey: detached projections, mixed-task statuses, assumed attribution, actual
+WebGL image change, playback isolation, controlled context loss/remount,
+invalidation and 320/390 px SVG fallback. Run the existing integrated three-engine
+suites against the guarded build, preserving the documented Firefox workaround.

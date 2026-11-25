@@ -32,7 +32,7 @@ function Readiness({ result }: { result: ReturnType<typeof evaluatePlan> }) {
     : <p>No selected tasks.</p>;
 }
 
-export function MissionWorkspace() {
+export function MissionWorkspace({ dark = false, reducedMotion = false }: { dark?: boolean; reducedMotion?: boolean }) {
   const [draft, setDraft] = useState<MissionPlan>(empty);
   const [assumptions, setAssumptions] = useState<readonly string[]>([]);
   const [reference, setReference] = useState<MissionPlan>();
@@ -301,7 +301,7 @@ export function MissionWorkspace() {
     </fieldset>
     <h2 id="mission-preview-diagnostics" tabIndex={-1}>Preview &amp; Diagnostics</h2>
     <p>Preview steps use a captured Plan B input. Editing Plan B clears this preview while keeping captured scenarios.</p>
-    {preview && <MissionPreview state={preview}
+    {preview && <MissionPreview state={preview} dark={dark} reducedMotion={reducedMotion}
       onStep={() => setPreview((state) => state && stepMissionPreview(state))}
       onReset={() => {
         setPreview((state) => state && resetMissionPreview(state));

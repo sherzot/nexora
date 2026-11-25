@@ -61,7 +61,7 @@ export default function App() {
     case 'office': content = <OfficeOverview dark={theme === 'dark'} reducedMotion={reducedMotion} />; break;
     case 'agents': content = <AgentDirectory />; break;
     case 'agent': content = <AgentDetail id={route.agentId ?? ''} />; break;
-    case 'mission': content = <MissionWorkspace />; break;
+    case 'mission': content = <MissionWorkspace dark={theme === 'dark'} reducedMotion={reducedMotion} />; break;
     case 'task': content = <TaskWorkspace id={route.taskId ?? ''} />; break;
     case 'tasks': content = <TaskBoard focusedId={route.taskId} />; break;
     case 'activity': content = route.interactionId ? <SimulationTimeline interactionId={route.interactionId} /> : <ActivityTimeline />; break;
