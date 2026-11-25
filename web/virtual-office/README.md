@@ -1002,3 +1002,27 @@ journey: detached projections, mixed-task statuses, assumed attribution, actual
 WebGL image change, playback isolation, controlled context loss/remount,
 invalidation and 320/390 px SVG fallback. Run the existing integrated three-engine
 suites against the guarded build, preserving the documented Firefox workaround.
+
+### C25 mission autoplay and replay
+
+After **Start preview**, use **Play preview**, **Pause preview**, **Resume preview**
+and **Preview speed** (1×/2×/4×). One logical transition is paced at 1000/500/250 ms;
+these intervals represent presentation pacing, never task duration or real work.
+**Step preview** remains available while idle or paused. At completion autoplay
+stops. **Reset preview**, then **Play preview** reproduces the captured event trace.
+Controls remain focusable when aria-disabled so a changing state does not discard
+keyboard focus; unavailable actions cannot consume transitions.
+
+**Follow active agent** synchronizes selection and camera with the current active
+assignee; manual agent selection disables following. Reduced motion still applies.
+Draft invalidation, recapture, reset and route exit cancel pending playback. Hiding
+the tab pauses it; returning requires explicit Resume. No Mission playback state
+is persisted, and the independent Office simulation clock remains unchanged.
+
+`tests/mission-playback.test.mjs` verifies timing, deterministic traces, stale and
+duplicate callbacks, reentrant cancellation, terminal and error handling with an
+injected clock. The `mission-preview` browser journey covers the controls, replay,
+follow selection, invalidation, controlled visibility events and mobile SVG. The
+visibility test injects the document-hidden event; it does not establish OS-level
+background-tab behavior. Existing fixture/model/dependency/native guard boundaries
+remain unchanged; this adds no walking, backend, worker, WASM or operational work.

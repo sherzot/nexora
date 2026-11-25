@@ -6,7 +6,7 @@ import { OfficeScene } from './OfficeScene';
 import type { OfficePresentation } from './presentation';
 import type { OfficeRenderer } from './three/renderer';
 
-export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = false, presentation }: { selectedId: string; onSelect: (id: string) => void; dark: boolean; reducedMotion?: boolean; presentation?: OfficePresentation }) {
+export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = false, presentation, followSelection }: { selectedId: string; onSelect: (id: string) => void; dark: boolean; reducedMotion?: boolean; presentation?: OfficePresentation; followSelection?: boolean }) {
   const { view, interaction } = useSimulation();
   const simulation = !presentation && view.snapshot.active ? view.snapshot : undefined;
   const playing = !presentation && view.mode === 'playing';
@@ -24,6 +24,7 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
   const [hoveredId, setHoveredId] = useState<string>();
   const [zoneId, setZoneId] = useState<string>();
   const [follow, setFollow] = useState(false);
+  const following = followSelection ?? follow;
   const [systemReduced, setSystemReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const motion = useRef(reducedMotion || systemReduced);
   motion.current = reducedMotion || systemReduced;
@@ -63,8 +64,8 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
   }, [twoD, dark]);
   useEffect(() => {
     renderer.current?.setSelection(selectedId);
-    if (follow && renderer.current) { renderer.current.focusAgent(selectedId); setZoneId(undefined); }
-  }, [selectedId, follow, ready]);
+    if (following && renderer.current) { renderer.current.focusAgent(selectedId); setZoneId(undefined); }
+  }, [selectedId, following, ready]);
   useEffect(() => { renderer.current?.setReducedMotion(reducedMotion || systemReduced); }, [reducedMotion, systemReduced, ready]);
   useEffect(() => { renderer.current?.setSimulation(simulation, playing, speed); }, [simulation, playing, speed, ready]);
   useEffect(() => { renderer.current?.setPresentation(presentation); }, [presentation, ready]);
@@ -82,7 +83,7 @@ export function OfficeViewport({ selectedId, onSelect, dark, reducedMotion = fal
         <button type="button" disabled={!ready || !selected} onClick={() => { renderer.current?.focusAgent(selectedId); setZoneId(undefined); }}>Focus {selected?.name ?? 'agent'}</button>
         <button type="button" disabled={!ready} aria-label="Zoom in" onClick={() => renderer.current?.zoomBy(-100)}>＋</button>
         <button type="button" disabled={!ready} aria-label="Zoom out" onClick={() => renderer.current?.zoomBy(100)}>−</button>
-        <label className="office-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow selection</label>
+        {followSelection === undefined && <label className="office-follow"><input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />Follow selection</label>}
       </>}
     </div>
     {twoD ? <OfficeScene selectedId={selectedId} onSelect={onSelect} simulation={simulation} presentation={presentation} source={source} target={target} /> : <div className="office-stage"><div ref={host} className="office-webgl" aria-busy={!ready} />

@@ -366,3 +366,17 @@ input[type="search"], select { min-height: 39px; padding: 9px 12px; border-radiu
 .mission-preview-layout > .mission-scene { margin: 0; min-width: 0; }
 .mission-preview-layout > .content-section { min-width: 0; align-self: start; }
 @media (max-width: 1100px) { .mission-preview-layout { display: block; }.mission-preview-layout > .mission-scene { margin-block: 24px; } }
+
+.preview-playback-controls button[aria-disabled="true"] { opacity: .5; cursor: default; }
+.preview-playback-controls label { display: grid; gap: 4px; font-size: 12px; }
+.preview-playback-controls select {
+  appearance: none; min-height: 40px; padding-right: 28px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: right 13px center, right 8px center; background-size: 5px 5px; background-repeat: no-repeat;
+}
+.preview-playback-help { font-size: 12px; color: var(--text-muted); max-width: 780px; }
+.mission-follow-active { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; }
+@media (max-width: 700px) {
+  .preview-playback-controls button, .preview-playback-controls select { min-height: 44px; }
+  .preview-playback-controls { align-items: stretch; }
+}
