@@ -182,6 +182,80 @@ export default async function checkMissionPreview(page, origin) {
   await button('Reset mission').press('Enter');
   assert(await scene.count() === 0, 'Mission reset must release its scene');
 
+  // C25: presentation pacing consumes only the existing captured transition function.
+  await button('Load sample mission').press('Enter');
+  await start.press('Enter');
+  // Preserve the existing macOS WebKit full-keyboard-navigation convention.
+  const nextFocus = process.platform === 'darwin' && page.context().browser()?.browserType().name() === 'webkit' ? 'Alt+Tab' : 'Tab';
+  const playbackStatus = page.getByRole('status', { name: 'Mission playback status' });
+  const speed = page.getByRole('combobox', { name: 'Preview speed', exact: true });
+  const follow = page.getByRole('checkbox', { name: 'Follow active agent', exact: true });
+  const waitEvents = (count) => page.waitForFunction((n) =>
+    document.querySelectorAll('ol[aria-label="Hypothetical mission events"] > li').length === n, count, { timeout: 10000 });
+  assert(await events.count() === 0 && (await playbackStatus.innerText()).includes('idle'), 'Capture cannot start autoplay');
+  await speed.selectOption('4');
+  await follow.check();
+  const autoplayOfficeClock = await clock();
+  await button('Play preview').press('Enter');
+  assert(await step.getAttribute('aria-disabled') === 'true', 'Manual step cannot race playback');
+  await page.waitForFunction(() => document.querySelectorAll('ol[aria-label="Hypothetical mission events"] > li').length > 0, undefined, { timeout: 10000 });
+  await page.keyboard.press(nextFocus);
+  assert(await focus(button('Pause preview')), 'Tab from Play must reach the visible Pause control');
+  await page.keyboard.press('Enter');
+  const pausedEvents = await events.count();
+  assert(pausedEvents > 0 && pausedEvents < 6, 'Pause must interrupt a bounded playback');
+  assert(await focus(button('Pause preview')), 'Paused control must retain visible keyboard focus');
+  await page.waitForTimeout(600);
+  assert(await events.count() === pausedEvents, 'Pause must cancel pending transitions');
+  await page.keyboard.press(nextFocus);
+  assert(await focus(button('Resume preview')), 'Tab from Pause must reach Resume');
+  await page.keyboard.press('Enter');
+  await waitEvents(6);
+  assert((await playbackStatus.innerText()).includes('finished'), 'Autoplay must stop at terminal state');
+  assert(await clock() === autoplayOfficeClock, 'Autoplay cannot advance the Office clock');
+  assert(await selectedStatus('Iris').getAttribute('aria-pressed') === 'true', 'Follow must select the latest active assignee');
+  const automaticTrace = await events.allTextContents();
+  await button('Reset preview').press('Enter');
+  assert(await events.count() === 0 && await focus(step), 'Reset must restore step-zero state and visible focus');
+  await button('Play preview').press('Enter');
+  await waitEvents(6);
+  assert(JSON.stringify(await events.allTextContents()) === JSON.stringify(automaticTrace), 'Reset and Play must reproduce the exact captured trace');
+
+  await button('Reset preview').press('Enter');
+  await selectedStatus('Noah').press('Enter');
+  assert(!(await follow.isChecked()), 'Manual agent selection must disable following');
+  await step.press('Enter');
+  assert(await selectedStatus('Noah').getAttribute('aria-pressed') === 'true', 'Manual selection must survive a transition');
+  await button('Resume preview').press('Enter');
+  await start.press('Enter');
+  await page.waitForTimeout(600);
+  assert(await events.count() === 0 && (await playbackStatus.innerText()).includes('idle'), 'Recapture must reject callbacks from the previous capture');
+  await button('Play preview').press('Enter');
+  // Controlled visibility event verifies the component handler; fake-clock tests verify stale callback rejection.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(600);
+  assert((await playbackStatus.innerText()).includes('paused') && await events.count() === 0, 'Hidden-tab event must pause without advancing');
+  await button('Resume preview').press('Enter');
+  assert((await playbackStatus.innerText()).includes('paused'), 'Hidden document cannot resume playback');
+  await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
+  assert((await playbackStatus.innerText()).includes('paused'), 'Returning to visibility must require explicit Resume');
+  await button('Resume preview').press('Enter');
+  await assignment(first).selectOption('demo-agent-leo');
+  await page.waitForTimeout(600);
+  assert(await scene.count() === 0 && await events.count() === 0, 'Draft edit must cancel playback and remove obsolete evidence');
+  await start.press('Enter');
+  assert(await events.count() === 0, 'Edited capture must remain idle');
+  await button('Play preview').press('Enter');
+  await link('Return to Office').press('Enter');
+  await heading('Virtual Office');
+  await page.waitForTimeout(600);
+  await link('Plan a mission').press('Enter');
+  await heading('Mission Planning');
+  assert(await scene.count() === 0 && await events.count() === 0, 'Route exit must cancel and release captured playback');
+
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto(origin + '/?mission-preview=' + width + '#/office');
@@ -195,11 +269,18 @@ export default async function checkMissionPreview(page, origin) {
     await scene.locator('svg.office-scene').waitFor();
     assert((await selectedStatus('Ada').innerText()).includes('Active'), 'Mobile SVG must use the same active task projection');
     assert(await events.count() === 1 && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile preview must fit and expose events');
+    const mobileControls = page.getByRole('group', { name: 'Mission playback controls' });
+    assert(await mobileControls.locator('button, select').evaluateAll((nodes) => nodes.every((node) => node.getBoundingClientRect().height >= 44)), 'Mobile playback controls must have usable touch targets');
+    await button('Reset preview').press('Enter');
+    await page.getByRole('combobox', { name: 'Preview speed', exact: true }).selectOption('4');
+    await button('Play preview').press('Enter');
+    await waitEvents(2);
+    assert((await selectedStatus('Ada').innerText()).includes('Completed'), 'Mobile autoplay must update SVG mission status');
     await page.reload();
     await heading('Mission Planning');
     assert(!(await tasks.first().isChecked()) && await events.count() === 0, 'Reload must end the local preview session');
   }
 
   assert(problems.length === 0, JSON.stringify(problems));
-  return { missionScene: 'PASS', webglStatus: 'PASS', sceneIsolation: 'PASS', contextLossFallback: 'PASS', assignment: 'PASS', prerequisites: 'PASS', replay: 'PASS', isolation: 'PASS', invalidation: 'PASS', focus: 'PASS', history: 'PASS', widths: [320, 390], problems };
+  return { autoplay: 'PASS', pauseResume: 'PASS', deterministicReplay: 'PASS', followAgent: 'PASS', staleCallbacks: 'PASS', controlledVisibilityPause: 'PASS', missionScene: 'PASS', webglStatus: 'PASS', sceneIsolation: 'PASS', contextLossFallback: 'PASS', assignment: 'PASS', prerequisites: 'PASS', replay: 'PASS', isolation: 'PASS', invalidation: 'PASS', focus: 'PASS', history: 'PASS', widths: [320, 390], problems };
 }
