@@ -47,6 +47,13 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		},
 		"internal/modelprobe":      {},
 		"internal/platform/ollama": {module + "internal/modelprobe": true},
+		// C27 independent developer console; no operational owner dependency.
+		"cmd/model-console": {
+			module + "internal/modelprobe":            true,
+			module + "internal/platform/modelconsole": true,
+			module + "internal/platform/ollama":       true,
+		},
+		"internal/platform/modelconsole": {module + "internal/modelprobe": true},
 		"internal/platform/postgrescheck": {
 			"github.com/jackc/pgx/v5/pgconn":   true,
 			"github.com/jackc/pgx/v5/pgproto3": true,
@@ -84,6 +91,17 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	// Narrow mechanisms for the new developer-only slice. These do not widen
 	// any existing Runtime, identity, HTTP skeleton or demo package permission.
 	probeStandard := map[string]map[string]bool{
+		"cmd/model-console": {
+			"context": true, "errors": true, "fmt": true, "io": true, "log/slog": true,
+			"net": true, "net/http": true, "os": true, "os/signal": true, "syscall": true, "time": true,
+		},
+		"internal/platform/modelconsole": {
+			"bytes": true, "context": true, "crypto/rand": true, "crypto/subtle": true, "embed": true,
+			"encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true, "html": true,
+			"io": true, "log/slog": true, "mime": true, "net": true, "net/netip": true,
+			"net/http": true, "net/url": true, "strconv": true, "strings": true,
+			"sync/atomic": true, "time": true, "unicode/utf8": true,
+		},
 		"internal/modelprobe": {
 			"context": true, "errors": true, "strings": true, "unicode/utf8": true,
 		},
@@ -98,7 +116,9 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		},
 	}
 	probeTestStandard := map[string]map[string]bool{
-		"internal/modelprobe": {"testing": true},
+		"cmd/model-console":              {"bytes": true, "strings": true, "testing": true},
+		"internal/platform/modelconsole": {"net/http/httptest": true, "testing": true},
+		"internal/modelprobe":            {"testing": true},
 		"internal/platform/ollama": {
 			"net/http/httptest": true, "strings": true, "sync": true, "sync/atomic": true, "testing": true,
 		},
