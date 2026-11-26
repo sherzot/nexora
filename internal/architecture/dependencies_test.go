@@ -40,6 +40,13 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			module + "internal/runtime":  true,
 			module + "internal/workflow": true,
 		},
+		// C26 owner-approved developer probe; no dependency on operational owners.
+		"cmd/model-probe": {
+			module + "internal/modelprobe":      true,
+			module + "internal/platform/ollama": true,
+		},
+		"internal/modelprobe":      {},
+		"internal/platform/ollama": {module + "internal/modelprobe": true},
 		"internal/platform/postgrescheck": {
 			"github.com/jackc/pgx/v5/pgconn":   true,
 			"github.com/jackc/pgx/v5/pgproto3": true,
@@ -73,6 +80,29 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		"context": true,
 		"errors":  true,
 		"bytes":   true, "io": true, "strings": true, "testing": true,
+	}
+	// Narrow mechanisms for the new developer-only slice. These do not widen
+	// any existing Runtime, identity, HTTP skeleton or demo package permission.
+	probeStandard := map[string]map[string]bool{
+		"internal/modelprobe": {
+			"context": true, "errors": true, "strings": true, "unicode/utf8": true,
+		},
+		"internal/platform/ollama": {
+			"bytes": true, "context": true, "encoding/json": true, "errors": true,
+			"fmt": true, "io": true, "mime": true, "net": true, "net/http": true,
+			"time": true, "unicode/utf8": true,
+		},
+		"cmd/model-probe": {
+			"context": true, "encoding/json": true, "fmt": true, "io": true,
+			"os": true, "os/signal": true, "syscall": true,
+		},
+	}
+	probeTestStandard := map[string]map[string]bool{
+		"internal/modelprobe": {"testing": true},
+		"internal/platform/ollama": {
+			"net/http/httptest": true, "strings": true, "sync": true, "sync/atomic": true, "testing": true,
+		},
+		"cmd/model-probe": {"bytes": true, "errors": true, "strings": true, "testing": true},
 	}
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -110,6 +140,11 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			}
 			if contracts[owner] && !contractStandard[name] {
 				t.Errorf("%s: identity contract depends on an unauthorized mechanism %s", relative, name)
+			}
+			if permitted, probe := probeStandard[owner]; probe && standard[name] && !permitted[name] {
+				if !strings.HasSuffix(path, "_test.go") || !probeTestStandard[owner][name] {
+					t.Errorf("%s: developer probe depends on an unauthorized mechanism %s", relative, name)
+				}
 			}
 			if owner == "cmd/runtime-demo" && standard[name] {
 				permitted := demoStandard
