@@ -6,6 +6,7 @@ import { findAgent, findRoom, findTask, tasksForAgent, agentHref } from '../demo
 import { AgentAvatar } from '../components/AgentAvatar';
 import { StatusLabel } from '../components/StatusLabel';
 import { OfficeViewport } from '../office/OfficeViewport';
+import { LocalModelConsoleLink } from '../office/LocalModelConsoleLink';
 
 export function OfficeOverview({ dark = false, reducedMotion = false }: { dark?: boolean; reducedMotion?: boolean }) {
   const { selectedId, select: setSelectedId, view } = useSimulation();
@@ -69,5 +70,6 @@ export function OfficeOverview({ dark = false, reducedMotion = false }: { dark?:
       <p className="office-planning-note"><a href="#/mission">Plan a hypothetical mission →</a> Planning is a separate local exercise; loading a sample does not run Office agents.</p>
     </section>
     <section className="agent-strip-section" aria-labelledby="office-list-title"><div className="section-heading"><h2 id="office-list-title">Around the office</h2><a href="#/agents">Browse directory <span aria-hidden="true">→</span></a></div><p className="section-description">Equivalent agent selection, without the floor plan.</p><ul className="agent-strip">{agents.map((agent) => <li key={agent.id}><button className={selectedId === agent.id ? 'agent-select is-selected' : 'agent-select'} aria-pressed={selectedId === agent.id} onClick={() => setSelectedId(agent.id)}><AgentAvatar agent={agent} /><span><strong>{agent.name}</strong><span>{agent.role}</span></span><span className="selection-indicator" aria-hidden="true">↗</span></button></li>)}</ul></section>
+    <LocalModelConsoleLink />
   </>;
 }

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import reliability from './office-reliability-browser.mjs';
+import localConsole from './office-local-console-browser.mjs';
 import benchmark from './office-performance-browser.mjs';
 import office from './office-browser-checks.mjs';
 import experience from './office-experience-browser.mjs';
@@ -46,6 +47,7 @@ async function run(browser) {
       console.log(JSON.stringify({ engine, suite: experience.name, status: 'NOT RUN', reason: 'Requires Chromium CDP screenshots' }));
     }
     const suites = mode === 'all' ? [office, ...cameraSuites, simulation, analytics, collaboration, hardening, reliability, resize, journey, coordination, mission, missionPreview, missionDiagnostics, missionReadiness, missionDecision]
+      : mode === 'local-console' ? [localConsole]
       : mode === 'mission-decision' ? [missionDecision]
       : mode === 'mission-readiness' ? [missionReadiness]
       : mode === 'mission-diagnostics' ? [missionDiagnostics]
