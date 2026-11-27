@@ -35,6 +35,12 @@ Only the owner may authorize acceptance or retirement of accepted decisions. Pre
 | [ADR-011 — Observability & Audit Architecture](ADR-011-observability-audit.md) | Accepted | Hybrid operational telemetry, explicit durable audit contracts and authoritative owner evidence; explicit human project-owner architecture approval 2026-10-06 |
 | [ADR-012 — Deployment Architecture](ADR-012-deployment-architecture.md) | Accepted | Hybrid incremental topology: modular Go control plane, separately operated trusted workers, managed PostgreSQL and strongly isolated execution; no initial Kubernetes requirement; approval 2026-10-06, explicit human project-owner architecture approval |
 
+## Later bounded decisions
+
+| Record | Status | Scope |
+| --- | --- | --- |
+| [ADR-014 — Local Run admission pilot](ADR-014-local-run-admission-pilot.md) | Accepted direction, feasibility gated; owner decision 2026-11-27 | Non-dispatching R0 direction only; no O1–O5 closure, provisioning, schema or execution approval |
+
 ## Roadmap and dependencies
 
 ADR-001, ADR-002, ADR-003, ADR-004 and ADR-005 are Accepted. The sequence below includes those records and future roadmap items. ADR-006 is Accepted with explicit human project-owner approval dated 2026-10-05. ADR-007 is Accepted with explicit human project-owner approval dated 2026-10-05. ADR-008 is Accepted with explicit human project-owner approval dated 2026-10-05. ADR-009 is Accepted with explicit human project-owner approval dated 2026-10-05. ADR-010 is Accepted with explicit human project-owner architecture approval dated 2026-10-05. Acceptance does not authorize implementation. ADR-011 is Accepted with explicit human project-owner architecture approval dated 2026-10-06. Acceptance does not authorize implementation. ADR-012 is Accepted with explicit human project-owner architecture approval dated 2026-10-06. The currently planned foundation architecture is complete; acceptance does not authorize implementation. This is the final currently planned foundation architecture decision; no implementation or additional architecture decision is authorized. The reasoning sequence is:
