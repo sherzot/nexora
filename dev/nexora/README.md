@@ -102,3 +102,10 @@ Never remove or modify C3/C4 resources or external credentials.
 D02 remains NOT ACCEPTED; normative obligations REVIEW ONLY; O1–O5 and
 GO-2026-5932 OPEN. Operational Run creation, admission and persistence remain
 BLOCKED. ADR-012's planned service topology is not implementation authorization.
+
+## Later owner-approved local grouping
+
+The separate [database test profile](README.database.md) adds an opt-in `db-test`
+service to this same `nexora` Compose project. It preserves the base configuration
+above and does not connect the application to a database or enable operations.
+Historical C3/C4 resources remain inspection-only; no automatic cleanup/adoption.

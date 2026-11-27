@@ -54,6 +54,11 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			module + "internal/platform/ollama":       true,
 		},
 		"internal/platform/modelconsole": {module + "internal/modelprobe": true},
+		// R0 D1 mechanism only: raw OS facts, no domain or provider dependencies.
+		"internal/platform/localpeer": {},
+		// R0 D2 owner-observation composition, still not admission/permission.
+		"internal/localidentity":          {},
+		"internal/platform/localidentity": {module + "internal/localidentity": true, module + "internal/platform/localpeer": true},
 		"internal/platform/postgrescheck": {
 			"github.com/jackc/pgx/v5/pgconn":   true,
 			"github.com/jackc/pgx/v5/pgproto3": true,
@@ -91,6 +96,11 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	// Narrow mechanisms for the new developer-only slice. These do not widen
 	// any existing Runtime, identity, HTTP skeleton or demo package permission.
 	probeStandard := map[string]map[string]bool{
+		"internal/localidentity":          {"context": true, "errors": true, "strings": true, "unicode": true, "unicode/utf8": true},
+		"internal/platform/localidentity": {"context": true, "net": true},
+		"internal/platform/localpeer": {
+			"errors": true, "net": true, "runtime": true, "syscall": true, "unsafe": true,
+		},
 		"cmd/model-console": {
 			"context": true, "errors": true, "fmt": true, "io": true, "log/slog": true,
 			"net": true, "net/http": true, "os": true, "os/signal": true, "syscall": true, "time": true,
@@ -116,9 +126,12 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		},
 	}
 	probeTestStandard := map[string]map[string]bool{
-		"cmd/model-console":              {"bytes": true, "strings": true, "testing": true},
-		"internal/platform/modelconsole": {"net/http/httptest": true, "testing": true},
-		"internal/modelprobe":            {"testing": true},
+		"internal/localidentity":          {"encoding/json": true, "sync/atomic": true, "testing": true},
+		"internal/platform/localidentity": {"errors": true, "io": true, "os": true, "path/filepath": true, "testing": true, "time": true},
+		"internal/platform/localpeer":     {"io": true, "os": true, "path/filepath": true, "sync": true, "testing": true, "time": true},
+		"cmd/model-console":               {"bytes": true, "strings": true, "testing": true},
+		"internal/platform/modelconsole":  {"net/http/httptest": true, "testing": true},
+		"internal/modelprobe":             {"testing": true},
 		"internal/platform/ollama": {
 			"net/http/httptest": true, "strings": true, "sync": true, "sync/atomic": true, "testing": true,
 		},

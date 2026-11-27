@@ -1,0 +1,63 @@
+# Explicit local technical test only. Merge with compose.yaml; never use down.
+name: nexora
+services:
+  db-test:
+    profiles: ["db-test"]
+    image: sha256:858bb5e98eed02eb8cafbcdc007f9a65d1b613972028944a8ec2133ccaf80d27
+    pull_policy: never
+    restart: "no"
+    network_mode: none
+    user: postgres
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    cpus: 1
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 128
+    shm_size: 64m
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=67108864,mode=1777
+    volumes:
+      - type: volume
+        source: r0_test_data
+        target: /var/lib/postgresql/data
+        volume:
+          nocopy: true
+    # Reuse only the initialized cluster from the owner-approved R0 experiment.
+    # No initdb, password setup, image entrypoint or automatic data migration.
+    entrypoint: ["postgres"]
+    command:
+      - -D
+      - /var/lib/postgresql/data
+      - -c
+      - listen_addresses=
+      - -c
+      - unix_socket_directories=/tmp
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - max_connections=8
+      - -c
+      - max_wal_size=128MB
+      - -c
+      - fsync=on
+      - -c
+      - synchronous_commit=on
+      - -c
+      - full_page_writes=on
+      - -c
+      - logging_collector=off
+      - -c
+      - log_statement=none
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "/tmp", "-U", "postgres", "-d", "postgres", "-t", "2"]
+      interval: 1s
+      timeout: 3s
+      retries: 20
+      start_period: 1s
+    stop_grace_period: 10s
+volumes:
+  r0_test_data:
+    external: true
+    name: nexora-r0-d5-preflight-data
