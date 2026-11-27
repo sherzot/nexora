@@ -54,6 +54,8 @@ func TestImplementedDependencyDirection(t *testing.T) {
 			module + "internal/platform/ollama":       true,
 		},
 		"internal/platform/modelconsole": {module + "internal/modelprobe": true},
+		// R0 D1 mechanism only: raw OS facts, no domain or provider dependencies.
+		"internal/platform/localpeer": {},
 		"internal/platform/postgrescheck": {
 			"github.com/jackc/pgx/v5/pgconn":   true,
 			"github.com/jackc/pgx/v5/pgproto3": true,
@@ -91,6 +93,9 @@ func TestImplementedDependencyDirection(t *testing.T) {
 	// Narrow mechanisms for the new developer-only slice. These do not widen
 	// any existing Runtime, identity, HTTP skeleton or demo package permission.
 	probeStandard := map[string]map[string]bool{
+		"internal/platform/localpeer": {
+			"errors": true, "net": true, "runtime": true, "syscall": true, "unsafe": true,
+		},
 		"cmd/model-console": {
 			"context": true, "errors": true, "fmt": true, "io": true, "log/slog": true,
 			"net": true, "net/http": true, "os": true, "os/signal": true, "syscall": true, "time": true,
@@ -116,6 +121,7 @@ func TestImplementedDependencyDirection(t *testing.T) {
 		},
 	}
 	probeTestStandard := map[string]map[string]bool{
+		"internal/platform/localpeer":    {"io": true, "os": true, "path/filepath": true, "sync": true, "testing": true, "time": true},
 		"cmd/model-console":              {"bytes": true, "strings": true, "testing": true},
 		"internal/platform/modelconsole": {"net/http/httptest": true, "testing": true},
 		"internal/modelprobe":            {"testing": true},
