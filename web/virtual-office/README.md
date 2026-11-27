@@ -1002,3 +1002,37 @@ journey: detached projections, mixed-task statuses, assumed attribution, actual
 WebGL image change, playback isolation, controlled context loss/remount,
 invalidation and 320/390 px SVG fallback. Run the existing integrated three-engine
 suites against the guarded build, preserving the documented Firefox workaround.
+
+## C28 — Open the local model console from Office
+
+At the end of the Office view, use **Work with the local model**. Start the
+existing developer command documented in `cmd/model-console/README.md` separately,
+paste its printed `http://127.0.0.1:PORT` address, prepare the link, then open it.
+Only canonical IPv4 loopback HTTP origins with a port from 1–65535 are accepted;
+paths, queries, fragments, credentials and alternate hosts are rejected.
+
+The link opens a separate tab without an opener or referrer. Address validation
+checks syntax, not service identity or availability. Only open a console you
+started and trust; another local process can listen on a loopback port. The
+Office does not scan ports, start services, fetch the console, submit prompts,
+or send agent/mission state. If connection fails, check the separately running
+console and enter its current address. The address is view-local and clears on
+route exit/reload; no cookies or localStorage are added. Browser history is not
+controlled by this feature. The console's unverified-response, no-tools,
+no-persistence and unchanged model-pin boundaries remain in force. This does
+not enable real Office agents or operational Runs.
+
+Focused verification with existing approved browsers (no installation):
+
+```sh
+NEXORA_LOCAL_CONSOLE_ORIGIN=http://127.0.0.1:PORT \
+NEXORA_PLAYWRIGHT_MODULE=/absolute/path/to/existing/playwright-core/index.mjs \
+node --no-addons tests/run-office-browser.mjs chromium http://127.0.0.1:FRONTEND_PORT local-console
+```
+
+Repeat for Firefox (preserving its isolated macOS `CFFIXED_USER_HOME` workaround)
+and WebKit. The test opens the real console root but deliberately submits no
+model prompt. It covers unsafe URL rejection, no background requests, keyboard
+focus, opener/referrer isolation, empty console input, Office selection/history,
+mobile layout, address invalidation and route/reload cleanup. Previous model
+quality failures are not reclassified by this navigation verification.
